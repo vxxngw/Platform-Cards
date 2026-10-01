@@ -3,6 +3,10 @@ import { fmtUsd } from '@/lib/tc'
 import { ChainWalletMenu } from './ChainWallet'
 import { connectWallet } from '@/lib/chain/wallet'
 import { ADDR, addrUrl } from '@/lib/chain/config'
+
+const ZERO = /^0x0{40}$/i
+const MISSING_CONFIG = ([['VITE_COLLECTION_ADDRESS', ADDR.collection], ['VITE_PACKSALE_ADDRESS', ADDR.packSale], ['VITE_MARKETPLACE_ADDRESS', ADDR.market]] as const)
+  .filter(([, a]) => ZERO.test(a)).map(([k]) => k)
 import { useConfig, useEthUsd, useMe } from '@/lib/hooks'
 import { Link } from '@/lib/router'
 import { BRAND, TAGLINE } from '@/lib/brand'
@@ -63,6 +67,11 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
         <nav className="flex items-center gap-1 overflow-x-auto border-t border-gold/10 px-2 md:hidden">
           {nav.map((n) => <NavLink key={n.to} to={n.to} label={n.label} active={isActive(path, n.to)} badge={n.to === '/profile' ? unopened : 0} />)}
         </nav>
+        {MISSING_CONFIG.length > 0 && (
+          <div className="border-t border-destructive/40 bg-crimson/30 px-4 py-1.5 text-center text-xs text-ivory">
+            Misconfigured deployment: {MISSING_CONFIG.join(', ')} {MISSING_CONFIG.length > 1 ? 'are' : 'is'} not set, so the app cannot read the contracts. Add {MISSING_CONFIG.length > 1 ? 'them' : 'it'} in the hosting environment variables and redeploy.
+          </div>
+        )}
         {cfg.data?.paused && (
           <div className="border-t border-destructive/40 bg-crimson/30 py-1.5 text-center font-display text-xs tracking-wide text-ivory">
             The contracts are paused — card transfers are halted until an admin resumes them.
