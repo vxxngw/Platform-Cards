@@ -20,7 +20,7 @@ export function ChainWalletMenu() {
   useEffect(() => { initChainWallet() }, [])
 
   if (!current) {
-    return <Button size="sm" onClick={() => connectInjected().then(refresh).catch(() => {})}>Kết nối MetaMask</Button>
+    return <Button size="sm" onClick={() => connectInjected().then(refresh).catch(() => {})}>Kết nối ví</Button>
   }
   const w = me.data?.wallet
   const wrong = chainId != null && chainId !== CHAIN_ID
