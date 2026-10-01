@@ -21,7 +21,7 @@ export function ChainWalletMenu() {
   const ethUsd = useEthUsd()
 
   if (!current) {
-    return <Button size="sm" onClick={() => connectWallet().catch(() => {})}>Kết nối ví</Button>
+    return <Button size="sm" onClick={() => connectWallet().catch(() => {})}>Connect wallet</Button>
   }
   const w = me.data?.wallet
   const wrong = chainId != null && chainId !== CHAIN_ID
@@ -30,7 +30,7 @@ export function ChainWalletMenu() {
     <div className="flex items-center gap-2">
       {wrong && (
         <Button size="sm" variant="destructive" onClick={() => ensureChain().then(refresh).catch((e) => toast.error((e as Error).message))}>
-          Sai mạng — chuyển sang {chain.name}
+          Wrong network — switch to {chain.name}
         </Button>
       )}
       <DropdownMenu>
@@ -47,23 +47,23 @@ export function ChainWalletMenu() {
           <DropdownMenuLabel className="space-y-1">
             <div className="flex items-center justify-between font-mono text-xs">
               <span>{short(current, 10)}</span>
-              <button className="text-fg-muted hover:text-fg-base" onClick={() => { navigator.clipboard?.writeText(current); toast('Đã copy địa chỉ') }}><Copy className="size-3.5" /></button>
+              <button className="text-fg-muted hover:text-fg-base" onClick={() => { navigator.clipboard?.writeText(current); toast('Address copied') }}><Copy className="size-3.5" /></button>
             </div>
             <div className="text-xs font-normal text-fg-muted">
-              {embedded ? 'Ví Privy (đăng nhập bằng email)' : `Ví ngoài${kind ? ` · ${kind}` : ''}`}
+              {embedded ? 'Privy wallet (email sign-in)' : `External wallet${kind ? ` · ${kind}` : ''}`}
             </div>
             {w && <div className="text-xs font-normal text-fg-muted">{fmtEth(w.balance, 6)} ETH {ethUsd ? `≈ ${fmtUsd(Number(w.balance) * ethUsd)}` : ''}</div>}
           </DropdownMenuLabel>
           {addrUrl(current) && (
-            <DropdownMenuItem onClick={() => window.open(addrUrl(current), '_blank')}><ExternalLink /> Xem trên Etherscan</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.open(addrUrl(current), '_blank')}><ExternalLink /> View on Etherscan</DropdownMenuItem>
           )}
           {CHAIN_ID === 11155111 && (
             <DropdownMenuItem onClick={() => { navigator.clipboard?.writeText(current); window.open(SEPOLIA_FAUCET, '_blank') }}>
-              <Droplets /> Lấy ETH Sepolia (đã copy địa chỉ)
+              <Droplets /> Get Sepolia ETH (address copied)
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => disconnectWallet().then(refresh).catch(() => {})}><LogOut /> Đăng xuất</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => disconnectWallet().then(refresh).catch(() => {})}><LogOut /> Sign out</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

@@ -11,7 +11,7 @@ const LANG = "en";
 const SERIE = "sv";
 const SET = { id: "sv03.5", name: "151" };
 const IMG = `https://assets.tcgdex.net/${LANG}/${SERIE}/${SET.id}`;
-const DESCRIPTION = "Bản số học thuật của thẻ Pokémon TCG. Không liên kết với Nintendo hay The Pokémon Company.";
+const DESCRIPTION = "Academic digital replica of a Pokémon TCG card. Not affiliated with Nintendo or The Pokémon Company.";
 const TIERS = ["Common", "Rare", "Epic", "Legendary"];
 
 // [localId, name, tier, official rarity (null = not confirmed against TCGdex yet; CHECK=1 reports it), maxSupply]
@@ -32,7 +32,7 @@ const REWARD = ["151", "Mew ex", "Double rare", 50];
 
 const meta = (localId, name, rarity, tier) => ({
   name,
-  description: tier === "Reward" ? `${DESCRIPTION} Thẻ thưởng chỉ nhận được khi đổi (burn) trọn bộ.` : DESCRIPTION,
+  description: tier === "Reward" ? `${DESCRIPTION} Reward card, obtainable only by burning a complete set.` : DESCRIPTION,
   image: `${IMG}/${localId}/high.webp`,
   attributes: [
     { trait_type: "Set", value: SET.name },
@@ -83,7 +83,7 @@ async function main() {
   const out = path.join(__dirname, "..", "metadata");
   fs.mkdirSync(out, { recursive: true });
   const write = (id, json) => fs.writeFileSync(path.join(out, `${id}.json`), JSON.stringify(json, null, 2));
-  for (let id = 1; id < first; id++) if (!fs.existsSync(path.join(out, `${id}.json`))) write(id, { name: `Thẻ #${id}`, description: DESCRIPTION, attributes: [], source: "custom" });
+  for (let id = 1; id < first; id++) if (!fs.existsSync(path.join(out, `${id}.json`))) write(id, { name: `Card #${id}`, description: DESCRIPTION, attributes: [], source: "custom" });
   POOL.forEach(([localId, n, tier, rarity], i) => write(first + i, meta(localId, n, rarity, TIERS[tier])));
   write(first + POOL.length, meta(REWARD[0], REWARD[1], REWARD[2], "Reward"));
 

@@ -106,7 +106,7 @@ async function build(): Promise<Catalog> {
     const r = isReward ? 4 : Number(rarity)
     const m = metas[i]
     cards.set(id, {
-      id, setId: set.id, name: m?.name || (isReward ? `Thẻ thưởng ${set.name}` : `Thẻ #${id}`), rarity: r, rarityName: RARITY[r],
+      id, setId: set.id, name: m?.name || (isReward ? `${set.name} reward` : `Card #${id}`), rarity: r, rarityName: RARITY[r],
       maxSupply: Number(maxSupply), supply, minted: supply + burned, burned,
       cardNo: isReward ? 0 : set.cardIds.indexOf(id) + 1, hue: m?.hue ?? (id * 47) % 360, isReward, priceRef: m?.priceRef ?? null,
       image: m?.image ?? null, setName: m?.setName, localId: m?.localId, officialRarity: m?.officialRarity, tcgdexId: m?.tcgdexId, lang: m?.lang,
@@ -127,7 +127,7 @@ async function build(): Promise<Catalog> {
     const source = head?.setName ? { setName: head.setName, tcgdexSetId: head.tcgdexId?.replace(/-[^-]+$/, ''), lang: head.lang } : undefined
     return {
       id: s.id, name: s.name, source,
-      description: source ? `Bộ ${s.cardIds.length} thẻ lấy từ set Pokémon TCG “${source.setName}” (dữ liệu TCGdex) và 1 thẻ thưởng khi đổi trọn bộ.` : `Bộ ${s.name} gồm ${s.cardIds.length} thẻ và 1 thẻ thưởng khi đổi trọn bộ.`,
+      description: source ? `${s.cardIds.length} cards from the Pokémon TCG set “${source.setName}” (TCGdex data), plus a reward card for completing the set.` : `${s.cardIds.length} cards, plus a reward card for completing the set.`,
       rewardCardId: s.rewardId, baseUri: first ? first.replace(/[^/]*$/, '') : '',
       pack: configured ? { price: formatEther(cfg[1]), remaining, total: Math.max(lastCfg.get(s.id) ?? remaining, remaining), onSale: cfg[3] } : null,
       cards: [...s.cardIds, s.rewardId].map((id) => cards.get(id)!),

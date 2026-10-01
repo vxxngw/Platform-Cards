@@ -12,6 +12,10 @@
     "type-check": "tsc --noEmit --incremental"
   },
   "dependencies": {
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/cinzel-decorative": "^5.3.0",
+    "@fontsource/roboto-mono": "^5.3.0",
+    "@fontsource/spectral": "^5.3.0",
     "@hookform/resolvers": "5.2.2",
     "@privy-io/react-auth": "^3.46.0",
     "@radix-ui/react-accordion": "1.2.12",

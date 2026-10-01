@@ -16,7 +16,7 @@ export function injected(): EIP1193Provider | null {
 
 export function walletClient() {
   const eth = injected()
-  if (!eth) throw new Error('Chưa kết nối ví. Bấm “Kết nối ví” để đăng nhập.')
+  if (!eth) throw new Error('No wallet connected. Click “Connect wallet” to sign in.')
   return createWalletClient({ chain, transport: custom(eth) })
 }
 

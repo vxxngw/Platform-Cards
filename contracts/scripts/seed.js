@@ -12,7 +12,7 @@ async function main() {
   // idempotent: re-running after a partial failure must not create a duplicate set
   let setId = Number(await collection.nextSetId()) - 1;
   if (setId < 1) {
-    await (await collection.createSet("Thần Thú Việt", rarities, supplies, 50)).wait();
+    await (await collection.createSet("Mythic Beasts", rarities, supplies, 50)).wait();
     setId = Number(await collection.nextSetId()) - 1;
   }
   const cfg = await packSale.packConfigs(setId);

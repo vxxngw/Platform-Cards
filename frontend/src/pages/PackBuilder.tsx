@@ -40,18 +40,18 @@ function Builder() {
   function onPick(card: PoolCard) {
     if (mode === 'pool') {
       if (poolKeys.has(card.key)) return patch({ pool: draft.pool.filter((c) => c.key !== card.key) }) // click again to remove
-      if (draft.reward?.key === card.key) return void toast.error('Thẻ này đang là thẻ thưởng', { description: 'Thẻ thưởng không được nằm trong pool.' })
-      if (draft.pool.length >= POOL_SIZE) return void toast.error(`Pool đã đủ ${POOL_SIZE} thẻ`, { description: 'Bỏ bớt một thẻ trước khi thêm.' })
+      if (draft.reward?.key === card.key) return void toast.error('This card is the reward card', { description: 'The reward card cannot be in the pool.' })
+      if (draft.pool.length >= POOL_SIZE) return void toast.error(`The pool already has ${POOL_SIZE} cards`, { description: 'Remove one before adding another.' })
       return patch({ pool: [...draft.pool, card], setName: draft.setName || defaultSetName(card) })
     }
-    if (poolKeys.has(card.key)) return void toast.error('Thẻ này đang nằm trong pool', { description: 'Thẻ thưởng không được trùng thẻ trong pool.' })
+    if (poolKeys.has(card.key)) return void toast.error('This card is already in the pool', { description: 'The reward card cannot be a pool card.' })
     if (draft.reward?.key === card.key) return patch({ reward: null })
     patch({ reward: card, setName: draft.setName || defaultSetName(card) })
   }
 
   function onAddCustom(card: PoolCard, as: 'pool' | 'reward') {
     if (as === 'reward') return patch({ reward: card })
-    if (draft.pool.length >= POOL_SIZE) return void toast.error(`Pool đã đủ ${POOL_SIZE} thẻ`)
+    if (draft.pool.length >= POOL_SIZE) return void toast.error(`The pool already has ${POOL_SIZE} cards`)
     patch({ pool: [...draft.pool, card] })
   }
 
@@ -66,7 +66,7 @@ function Builder() {
         <div className="text-xs text-fg-muted"><Link to="/admin" className="hover:text-fg-base">Admin</Link> / Pack Builder</div>
         <h1 className="text-2xl font-black">Pack Builder</h1>
         <p className="max-w-3xl text-sm text-fg-subtle">
-          Chọn 11 thẻ Pokémon TCG từ TCGdex theo cơ cấu 5/3/2/1 (Common/Rare/Epic/Legendary) và 1 thẻ thưởng, rồi phát hành set và pack chỉ trong vài phút. Tên, số thẻ, ảnh và độ hiếm tự điền; bậc on-chain quy đổi tự động.
+          Pick 11 Pokémon TCG cards from TCGdex in a 5/3/2/1 mix (Common/Rare/Epic/Legendary) plus 1 reward card, then publish the set and its packs in minutes. Names, numbers, images and rarities fill in automatically; on-chain tiers are mapped for you.
         </p>
       </div>
       <div className="grid gap-5 xl:grid-cols-[1.15fr_1fr]">
@@ -103,14 +103,14 @@ export default function PackBuilder() {
   if (!current) {
     return (
       <div className="mx-auto max-w-md rounded-xl border border-border p-8 text-center">
-        <div className="text-lg font-semibold">Kết nối ví Admin để dùng Pack Builder</div>
-        <Button className="mt-4" onClick={() => connectNewWallet().then(refresh).catch(() => {})}>Kết nối ví</Button>
+        <div className="text-lg font-semibold">Connect an admin wallet to use the Pack Builder</div>
+        <Button className="mt-4" onClick={() => connectNewWallet().then(refresh).catch(() => {})}>Connect wallet</Button>
       </div>
     )
   }
   if (me.isLoading || !me.data) return <Skeleton className="h-96 rounded-xl" />
   if (!me.data.wallet?.isAdmin) {
-    return <div className="mx-auto max-w-md rounded-xl border border-border p-8 text-center text-sm text-fg-subtle">Trang này chỉ dành cho ví có ADMIN_ROLE. Ví hiện tại không có quyền.</div>
+    return <div className="mx-auto max-w-md rounded-xl border border-border p-8 text-center text-sm text-fg-subtle">This page is for wallets holding ADMIN_ROLE. The connected wallet does not.</div>
   }
   return <Builder />
 }

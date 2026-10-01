@@ -1,152 +1,167 @@
 import { useQuery } from '@tanstack/react-query'
-import { CardFace } from '@/components/tc/CardFace'
-import { http, fmtEth, fmtUsd, short, timeAgo, RARITY_COLOR, RARITY_NAMES, RARITY_ODDS, type ChainEvent } from '@/lib/tc'
-import { useEthUsd, useEvents, useSets } from '@/lib/hooks'
-import { Link } from '@/lib/router'
+import { ArrowRight, Crown, Gem, Store, Wand2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { CardBack, CardFace } from '@/components/tc/CardFace'
+import { Crest, Divider, Frame, SectionHeader, Stat } from '@/components/royal/Ornaments'
+import { PackTile } from '@/components/royal/PackTile'
+import { OddsNotes, OddsTable } from '@/components/royal/Odds'
+import { Chronicle } from '@/components/royal/Chronicle'
+import { useBuyAndOpen } from '@/components/royal/PackOpenDialog'
+import { http, fmtEth, short, timeAgo, RARITY_COLOR, RARITY_NAMES, type Card } from '@/lib/tc'
+import type { Pull } from '@/lib/chain/adapter'
+import { useMe, useSets } from '@/lib/hooks'
+import { BRAND } from '@/lib/brand'
 
 type Stats = { packsSold: number; sales: number; volume: string; activeListings: number; wallets: number }
 
-export function describeEvent(e: ChainEvent): string {
-  const a = e.args as Record<string, any>
-  switch (e.name) {
-    case 'PacksPurchased': return `${short(a.buyer)} mua ${a.qty} pack · ${fmtEth(Number(a.paid) / 1e18)} ETH`
-    case 'OpenRequested': return `${short(a.buyer)} yêu cầu mở ${a.qty} pack (req #${a.reqId})`
-    case 'PackOpened': return `Req #${a.reqId} hoàn tất · ${a.cardIds?.length ?? 0} thẻ được mint`
-    case 'Listed': return `${short(a.seller)} niêm yết ${a.isBundle ? 'nguyên bộ' : `${a.amounts?.[0]}× thẻ #${a.ids?.[0]}`} · ${fmtEth(Number(a.price) / 1e18, 5)} ETH`
-    case 'Sold': return `Listing #${a.listingId} đã bán cho ${short(a.buyer)} · ${fmtEth(Number(a.price) / 1e18, 5)} ETH`
-    case 'Cancelled': return `Listing #${a.listingId} bị huỷ`
-    case 'SetRedeemed': return `${short(a.user)} đổi bộ #${a.setId} lấy thẻ thưởng #${a.rewardCardId}`
-    case 'SetCreated': return `Tạo bộ “${a.name}” · ${a.cardIds?.length ?? 0} thẻ + 1 thẻ thưởng`
-    case 'PackConfigured': return `Cấu hình pack bộ #${a.setId} · ${fmtEth(Number(a.price) / 1e18)} ETH · ${a.supply} pack`
-    case 'ApprovalForAll': return `${short(a.account)} ${a.approved ? 'cấp' : 'thu hồi'} quyền cho Marketplace`
-    case 'Withdrawn': return `${short(a.to)} rút ETH`
-    case 'Paused': return 'Admin tạm dừng hợp đồng'
-    case 'Unpaused': return 'Admin mở lại hợp đồng'
-    case 'FeeUpdated': return `Phí sàn đổi thành ${a.bps / 100}%`
-    case 'RoleGranted': return `Cấp ${a.role} cho ${String(a.account).startsWith('0x') ? short(a.account) : a.account}`
-    default: return e.name
-  }
-}
-
-export function ActivityFeed({ limit = 12 }: { limit?: number }) {
-  const ev = useEvents(limit)
+function HeroCards({ cards }: { cards: Card[] }) {
+  const slots = [0, 1, 2]
   return (
-    <div className="rounded-xl border border-border">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <span className="text-sm font-semibold">Event on-chain gần đây</span>
-        <span className="text-[11px] text-fg-muted">tự làm mới 30 giây</span>
-      </div>
-      <div className="divide-y divide-border">
-        {(ev.data || []).map((e) => (
-          <div key={e.id} className="flex items-start gap-3 px-4 py-2 text-xs">
-            <span className="w-24 shrink-0 font-mono text-fg-muted">{e.name}</span>
-            <span className="min-w-0 flex-1 text-fg-subtle">{describeEvent(e)}</span>
-            <span className="shrink-0 text-fg-muted">{timeAgo(e.at)}</span>
+    <div className="relative mx-auto h-[340px] w-[300px] sm:h-[400px] sm:w-[360px]">
+      <div className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(214,171,82,.28),transparent_65%)] blur-2xl" />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 size-[300px] -translate-x-1/2 -translate-y-1/2 animate-spin-slow rounded-full border border-dashed border-gold/25 sm:size-[360px]" />
+      {slots.map((i) => {
+        const c = cards[i]
+        const pos = [
+          'left-0 top-14 -rotate-[14deg]',
+          'left-1/2 top-0 z-10 -translate-x-1/2',
+          'right-0 top-14 rotate-[14deg]',
+        ][i]
+        return (
+          <div key={i} className={`absolute w-[42%] animate-float ${pos}`} style={{ animationDelay: `${i * 0.8}s` }}>
+            {c ? <CardFace card={c} quality="high" /> : <CardBack />}
           </div>
-        ))}
-        {ev.isLoading && <div className="p-4"><Skeleton className="h-16" /></div>}
-      </div>
+        )
+      })}
     </div>
   )
 }
 
-export function OddsTable() {
-  return (
-    <div className="grid grid-cols-4 gap-2 text-center">
-      {RARITY_ODDS.map((p, r) => (
-        <div key={r} className="rounded-md bg-bg-subtle px-2 py-2">
-          <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: RARITY_COLOR[r] }}>{RARITY_NAMES[r]}</div>
-          <div className="font-mono text-sm">{p}%</div>
-        </div>
-      ))}
-    </div>
-  )
-}
+const STEPS = [
+  { n: 'I', icon: Crown, title: 'Buy a Pack', body: 'Buy sealed packs with Sepolia ETH. Each holds five cards from one royal set.' },
+  { n: 'II', icon: Wand2, title: 'Break the Seal', body: 'Chainlink VRF draws your cards. The fifth is always Rare or better.' },
+  { n: 'III', icon: Gem, title: 'Complete the Set', body: 'Collect all eleven cards, then burn one of each to forge the reward card.' },
+  { n: 'IV', icon: Store, title: 'Trade at the Bazaar', body: 'List duplicates or whole sets on the Marketplace. Sellers pay a 2.5% fee.' },
+]
 
 export default function Home() {
   const sets = useSets()
-  const ethUsd = useEthUsd()
+  const me = useMe()
   const stats = useQuery({ queryKey: ['stats'], queryFn: () => http<Stats>('tc/stats'), refetchInterval: 30000 })
+  const pulls = useQuery({ queryKey: ['pulls'], queryFn: () => http<Pull[]>('tc/pulls?limit=12'), refetchInterval: 30000 })
+  const gacha = useBuyAndOpen()
+
+  const showcase = (sets.data || [])
+    .flatMap((s) => s.cards.filter((c) => !c.isReward))
+    .sort((a, b) => b.rarity - a.rarity || a.id - b.id)
+  const heroCards = [showcase[1], showcase[0], showcase[2]].filter(Boolean) as Card[]
+  const onSale = (sets.data || []).filter((s) => s.pack?.onSale).slice(0, 3)
+  const featured = onSale.length ? onSale : (sets.data || []).slice(0, 3)
+  const owned = (id: number) => me.data?.unopened?.find((u) => u.setId === id)?.count ?? 0
 
   return (
-    <div className="space-y-8">
-      <section className="grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-end">
+    <div className="space-y-20">
+      {/* Hero */}
+      <section className="relative grid items-center gap-10 pt-4 lg:grid-cols-[1.15fr_1fr]">
         <div>
-          <h1 className="text-3xl font-black leading-tight md:text-4xl">Mở pack, gom đủ bộ, đổi thẻ thưởng.</h1>
-          <p className="mt-2 max-w-xl text-fg-subtle">
-            Mỗi pack 5 thẻ ngẫu nhiên có thể kiểm chứng, luôn có ít nhất 1 thẻ Rare trở lên. Thẻ trùng đem bán lẻ hoặc bán nguyên bộ trên chợ P2P, phí sàn 2,5%.
+          <div className="kicker mb-4 flex items-center gap-3"><span className="h-px w-10 bg-gold/60" />Sepolia Testnet · Chainlink VRF</div>
+          <h1 className="text-4xl font-black leading-[1.05] text-ivory sm:text-5xl lg:text-6xl">
+            Forge your <span className="gold-shimmer">legend</span>,<br />one sealed pack at a time.
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-fg-subtle">
+            {BRAND} is a royal exchange for collectible cards: open packs with provable randomness, complete sets to forge reward cards, and trade every card peer to peer — all on chain.
           </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button asChild size="lg"><a href="#/gacha">Enter the Gacha <ArrowRight /></a></Button>
+            <Button asChild size="lg" variant="outline"><a href="#/market">Browse the Marketplace</a></Button>
+          </div>
         </div>
-        <div className="grid grid-cols-4 gap-px overflow-hidden rounded-xl border border-border bg-border">
-          {[
-            ['Pack đã bán', stats.data?.packsSold],
-            ['Giao dịch chợ', stats.data?.sales],
-            ['Khối lượng', stats.data ? `${fmtEth(stats.data.volume, 3)} Ξ` : undefined],
-            ['Đang niêm yết', stats.data?.activeListings],
-          ].map(([k, v]) => (
-            <div key={k as string} className="bg-background px-3 py-3">
-              <div className="text-[11px] text-fg-muted">{k}</div>
-              <div className="mt-0.5 font-mono text-lg font-bold">{v ?? '…'}</div>
-            </div>
+        <HeroCards cards={heroCards} />
+      </section>
+
+      {/* Treasury stats */}
+      <Frame strong className="grid grid-cols-2 gap-6 px-6 py-6 md:grid-cols-4 md:px-10">
+        <Stat label="Packs sold" value={stats.data?.packsSold?.toLocaleString()} />
+        <Stat label="Market trades" value={stats.data?.sales?.toLocaleString()} />
+        <Stat label="Trade volume" value={stats.data ? `${fmtEth(stats.data.volume, 3)} ETH` : undefined} />
+        <Stat label="Cards on the market" value={stats.data?.activeListings?.toLocaleString()} />
+      </Frame>
+
+      {/* Featured packs */}
+      <section className="space-y-6">
+        <SectionHeader kicker="The Royal Treasury" title="Featured Packs" sub="Sealed boosters from real Pokémon TCG sets, minted as testnet cards when you open them."
+          action={<Button asChild variant="outline" size="sm"><a href="#/gacha">All packs <ArrowRight /></a></Button>} />
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {sets.isLoading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-[520px] rounded-xl" />)}
+          {featured.map((s) => <PackTile key={s.id} set={s} owned={owned(s.id)} busy={gacha.busySet === s.id} onQuickBuy={() => gacha.buy(s, 1)} />)}
+          {sets.data && sets.data.length === 0 && (
+            <Frame className="col-span-full px-6 py-12 text-center text-fg-subtle">No set has been forged yet. An admin can create one with the Pack Builder.</Frame>
+          )}
+          {sets.error && <Frame className="col-span-full px-6 py-12 text-center text-fg-subtle">The treasury could not be read from Sepolia right now. Try again shortly.</Frame>}
+        </div>
+      </section>
+
+      {/* Latest pulls */}
+      <section className="space-y-6">
+        <SectionHeader kicker="Fresh from the forge" title="Latest Pulls" sub="The best card of each recent opening, across every player." />
+        {pulls.isLoading ? (
+          <div className="flex gap-4 overflow-hidden">{[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-60 w-40 shrink-0 rounded-xl" />)}</div>
+        ) : (pulls.data || []).length === 0 ? (
+          <Frame className="px-6 py-10 text-center text-fg-subtle">No pack has been opened yet — yours could be the first.</Frame>
+        ) : (
+          <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-3">
+            {pulls.data!.map((p) => {
+              const best = [...p.cards].sort((a, b) => b.rarity - a.rarity)[0]
+              if (!best) return null
+              return (
+                <div key={p.reqId} className="w-40 shrink-0">
+                  <CardFace card={best} />
+                  <div className="mt-2 truncate text-sm text-ivory">{best.name}</div>
+                  <div className="flex items-center justify-between font-display text-[10px] tracking-[0.12em]">
+                    <span style={{ color: RARITY_COLOR[best.rarity] }}>{RARITY_NAMES[best.rarity].toUpperCase()}</span>
+                    <span className="tracking-normal text-fg-muted">{timeAgo(p.at)}</span>
+                  </div>
+                  <div className="font-mono text-[10px] text-fg-muted">{short(p.buyer)}</div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* How it works */}
+      <section className="space-y-6">
+        <SectionHeader kicker="The Royal Path" title="How It Works" />
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {STEPS.map((s) => (
+            <Frame key={s.n} className="p-6">
+              <div className="flex items-center justify-between">
+                <span className="gold-text font-deco text-4xl font-black">{s.n}</span>
+                <span className="flex size-10 items-center justify-center rounded-full border border-gold/40 bg-gold/10 text-gold"><s.icon className="size-5" /></span>
+              </div>
+              <h3 className="mt-4 text-lg font-bold text-ivory">{s.title}</h3>
+              <p className="mt-1.5 text-fg-subtle">{s.body}</p>
+            </Frame>
           ))}
         </div>
       </section>
 
-      <section className="grid gap-5 md:grid-cols-2">
-        {sets.isLoading && [0, 1].map((i) => <Skeleton key={i} className="h-72 rounded-xl" />)}
-        {sets.error && <div className="text-sm text-destructive">Không tải được danh sách bộ. Thử lại sau.</div>}
-        {(sets.data || []).map((s) => {
-          const preview = [...s.cards].filter((c) => !c.isReward).sort((a, b) => b.rarity - a.rarity).slice(0, 3)
-          const reward = s.cards.find((c) => c.isReward)
-          const sold = s.pack ? s.pack.total - s.pack.remaining : 0
-          return (
-            <Link key={s.id} to={`/sets/${s.id}`} className="group block rounded-xl border border-border p-5 transition hover:border-fg-muted">
-              <div className="flex gap-5">
-                <div className="relative h-40 w-36 shrink-0">
-                  {preview.map((c, i) => (
-                    <div key={c.id} className="absolute w-24 transition group-hover:-translate-y-1" style={{ left: i * 18, top: i * 8, transform: `rotate(${(i - 1) * 7}deg)`, zIndex: 3 - i }}>
-                      <CardFace card={c} />
-                    </div>
-                  )).reverse()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h2 className="truncate text-xl font-bold">{s.name}</h2>
-                    {s.pack?.onSale ? <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">ĐANG BÁN</span>
-                      : <span className="rounded bg-bg-subtle px-1.5 py-0.5 text-[10px] font-bold text-fg-muted">TẠM ĐÓNG</span>}
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-sm text-fg-subtle">{s.description}</p>
-                  <div className="mt-3 flex items-baseline gap-2">
-                    <span className="font-mono text-2xl font-bold">{s.pack ? fmtEth(s.pack.price) : '—'} ETH</span>
-                    <span className="text-xs text-fg-muted">/ pack {s.pack && ethUsd ? `≈ ${fmtUsd(Number(s.pack.price) * ethUsd)}` : ''}</span>
-                  </div>
-                  {s.pack && (
-                    <div className="mt-2">
-                      <div className="h-1.5 overflow-hidden rounded-full bg-bg-subtle"><div className="h-full bg-primary" style={{ width: `${(sold / Math.max(1, s.pack.total)) * 100}%` }} /></div>
-                      <div className="mt-1 text-[11px] text-fg-muted">Còn {s.pack.remaining.toLocaleString()} / {s.pack.total.toLocaleString()} pack</div>
-                    </div>
-                  )}
-                  <div className="mt-2 text-[11px] text-fg-muted">{s.cards.filter((c) => !c.isReward).length} thẻ · thưởng: <span className="text-primary">{reward?.name}</span></div>
-                </div>
-              </div>
-            </Link>
-          )
-        })}
-      </section>
-
-      <section className="grid gap-5 lg:grid-cols-[1fr_1.4fr]">
-        <div className="space-y-3 rounded-xl border border-border p-4">
-          <div className="text-sm font-semibold">Tỷ lệ mỗi lượt rút</div>
+      {/* Odds + chronicle */}
+      <section className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
+        <Frame className="space-y-5 p-6">
+          <div>
+            <div className="kicker mb-1">Fortune's Ledger</div>
+            <h2 className="text-2xl font-bold text-ivory">Drop Rates</h2>
+          </div>
           <OddsTable />
-          <ul className="space-y-1.5 text-xs text-fg-subtle">
-            <li>Lá thứ 5 của mỗi pack rút từ bảng Rare+ → luôn có ít nhất 1 thẻ Rare trở lên.</li>
-            <li>Thẻ chạm maxSupply thì lượt rút rơi xuống độ hiếm thấp hơn kế tiếp.</li>
-            <li>Số ngẫu nhiên do Chainlink VRF sinh; mỗi lần mở có requestId và link Etherscan để bạn tự kiểm chứng.</li>
-          </ul>
-        </div>
-        <ActivityFeed />
+          <Divider />
+          <OddsNotes />
+          <div className="flex justify-center pt-2"><Crest className="h-14 w-14 opacity-50" /></div>
+        </Frame>
+        <Chronicle limit={10} />
       </section>
+      {gacha.dialog}
     </div>
   )
 }

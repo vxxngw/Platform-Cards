@@ -1,14 +1,16 @@
-# Sàn Thẻ Bộ — thẻ Pokémon TCG bản số trên Sepolia
+# Platform Cards — The Royal Card Exchange (Sepolia)
 
 Đồ án học thuật: phát hành thẻ theo bộ, bán pack ngẫu nhiên (Chainlink VRF), chợ thứ cấp. Thẻ là **bản số trên testnet** của thẻ Pokémon TCG, dữ liệu lấy từ [TCGdex](https://tcgdex.dev).
 
 | Thư mục | Nội dung |
 |---|---|
 | `contracts/` | `CardCollection`, `PackSale`, `Marketplace` (xem [contracts/README.md](contracts/README.md)) |
-| `frontend/` | Vite + React, đọc và ghi trực tiếp lên 3 hợp đồng; ví qua **Privy** (đăng nhập email → ví nhúng, hoặc MetaMask / ví ngoài); `/admin/pack-builder` duyệt TCGdex và phát hành set |
+| `frontend/` | Vite + React, giao diện **tiếng Anh**, phong cách High-Fantasy / Royal. Đọc và ghi trực tiếp lên 3 hợp đồng; ví qua **Privy** (đăng nhập email → ví nhúng, hoặc MetaMask / ví ngoài). Trang: Home, Gacha (mua pack xong mở ngay trong hộp thoại), Marketplace, Profile (Collection · Packs · Activities), Admin và `/admin/pack-builder` |
 | `frontend/api/` | Hàm serverless của Vercel (Express): `/api/pin` (pin metadata lên Pinata, chỉ admin), `/api/price` (Renaiss Index, cache 24h — giao diện đang để “Sắp ra mắt”), `/api/eth` (giá ETH). Không có server riêng, không có cổng, không có database |
 
 Biến môi trường: xem `frontend/.env.example` (phần `VITE_*` công khai trong trình duyệt; `PINATA_JWT`, `RENAISS_API_KEY`, `RENAISS_API_SECRET` chỉ ở phía server, không bao giờ đặt tên `VITE_*`) và `contracts/.env.example`.
+
+Tên thương hiệu và khẩu hiệu nằm ở `frontend/src/lib/brand.ts`; màu, font (Cinzel, Spectral, tự host qua `@fontsource`) và các lớp trang trí ở `frontend/src/index.css` và `frontend/src/components/royal/`.
 
 ## Chạy và kiểm tra
 
