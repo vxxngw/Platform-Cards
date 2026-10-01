@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { CardFace, RarityBadge } from './CardFace'
 import { http, fmtEth, short, timeAgo, RARITY_ODDS, type Card } from '@/lib/tc'
 import { TCGDEX_BASE } from '@/lib/pokemon/tcgdex'
+import { PRICE_REF_ENABLED } from '@/lib/features'
 import type { ReactNode } from 'react'
 
 type PriceReply = {
@@ -27,12 +28,21 @@ export function RefPrice({ card, compact }: { card: Card; compact?: boolean }) {
   const q = useQuery({
     queryKey: ['price', card.id, qs],
     queryFn: () => http<PriceReply>(`price?${qs}`),
-    enabled: !!qs,
+    enabled: PRICE_REF_ENABLED && !!qs,
     staleTime: 3600_000, retry: 0,
   })
+  const box = compact ? 'rounded-md border border-dashed border-border px-2 py-1.5 text-[11px]' : 'rounded-lg border border-dashed border-border p-3 text-xs'
+  if (!PRICE_REF_ENABLED) {
+    if (!qs) return null // hand-entered cards have no real counterpart to price
+    return (
+      <div className={`${box} flex items-center justify-between gap-2 text-fg-muted`}>
+        <span>{compact ? 'Giá tham chiếu' : 'Giá tham chiếu thị trường (Renaiss OS Index)'}</span>
+        <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">Sắp ra mắt</span>
+      </div>
+    )
+  }
   const d = q.data
   if (!qs || !d || d.error) return null // loading, API error or quota exhausted: hide the box, never block a trade
-  const box = compact ? 'rounded-md border border-dashed border-border px-2 py-1.5 text-[11px]' : 'rounded-lg border border-dashed border-border p-3 text-xs'
   if (!d.found || d.best_estimate == null) {
     return <div className={`${box} text-fg-muted`}>Chưa có giá tham chiếu</div>
   }

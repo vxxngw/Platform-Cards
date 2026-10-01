@@ -6,6 +6,8 @@ export const RPC_URL = env.VITE_RPC_URL || undefined
 export const LOGS_RPC_URL = env.VITE_LOGS_RPC_URL || (CHAIN_ID === 11155111 ? 'https://ethereum-sepolia-rpc.publicnode.com' : RPC_URL)
 export const DEPLOY_BLOCK = BigInt(env.VITE_DEPLOY_BLOCK || 0)
 export const ADMIN_ADDRESS = (env.VITE_ADMIN_ADDRESS || '').toLowerCase()
+// Privy App ID (public, from dashboard.privy.io). The App secret is never needed in the browser.
+export const PRIVY_APP_ID = env.VITE_PRIVY_APP_ID || ''
 export const IPFS_GATEWAY = env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/'
 
 export const ADDR = {

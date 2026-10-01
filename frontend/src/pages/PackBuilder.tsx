@@ -11,7 +11,7 @@ import { useWalletStore } from '@/lib/tc'
 import { useMe, useRefresh } from '@/lib/hooks'
 import { Link } from '@/lib/router'
 import { CHAIN_ID } from '@/lib/chain/config'
-import { initChainWallet, useWalletChainId } from '@/lib/chain/wallet'
+import { useWalletChainId } from '@/lib/chain/wallet'
 import { loadDraft, saveDraft, type Draft } from '@/lib/pokemon/draft'
 import { pinStatus } from '@/lib/pokemon/pin'
 import { loadContext } from '@/lib/pokemon/publish'
@@ -29,7 +29,6 @@ function Builder() {
   const [mode, setMode] = useState<PickMode>('pool')
   const isAdmin = !!me.data?.wallet?.isAdmin
 
-  useEffect(() => { initChainWallet() }, [])
   useEffect(() => { saveDraft(draft) }, [draft])
 
   const ctx = useQuery({ queryKey: ['builder-ctx', current], queryFn: loadContext, enabled: isAdmin, staleTime: 20_000, retry: 1 })

@@ -1,32 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { pickProvider, type AnnouncedProvider } from './providers'
+import { parseChainId, pickWallet } from './providers'
 
-const p = (name: string) => ({ name, request: async () => null }) as any
-const ann = (name: string, rdns: string): AnnouncedProvider => ({ info: { name, rdns }, provider: p(name) })
+describe('parseChainId', () => {
+  it('reads CAIP-2, hex and plain ids', () => {
+    expect(parseChainId('eip155:11155111')).toBe(11155111)
+    expect(parseChainId('0xaa36a7')).toBe(11155111)
+    expect(parseChainId(31337)).toBe(31337)
+    expect(parseChainId('31337')).toBe(31337)
+  })
+  it('returns null for missing or garbage values', () => {
+    expect(parseChainId(undefined)).toBeNull()
+    expect(parseChainId('')).toBeNull()
+    expect(parseChainId('eip155:abc')).toBeNull()
+  })
+})
 
-describe('pickProvider', () => {
-  it('prefers MetaMask over every other announced wallet', () => {
-    const mm = ann('MetaMask', 'io.metamask')
-    expect(pickProvider([ann('Rabby', 'io.rabby'), mm], null)).toBe(mm.provider)
+describe('pickWallet', () => {
+  const a = '0x84937c9A31e04f96f4eDB96d88F19c2d381BC3e3'
+  const b = '0x70D37c6d44a19b78eaeA76Eb587847c9f3fe2172'
+  it('takes the first (most recently connected) Ethereum wallet', () => {
+    expect(pickWallet([{ address: a, type: 'ethereum' }, { address: b, type: 'ethereum' }])?.address).toBe(a)
   })
-  it('never picks Privy, even if it is the only announced wallet or sits in window.ethereum', () => {
-    expect(pickProvider([ann('Privy', 'io.privy.wallet')], null)).toBeNull()
-    expect(pickProvider([], { isPrivy: true, request: async () => null } as any)).toBeNull()
+  it('skips non-Ethereum entries and malformed addresses', () => {
+    expect(pickWallet([{ address: 'So1ana111', type: 'solana' }, { address: 'nope' }, { address: b }])?.address).toBe(b)
   })
-  it('skips Privy and uses another announced wallet', () => {
-    const rabby = ann('Rabby', 'io.rabby')
-    expect(pickProvider([ann('Privy', 'io.privy.wallet'), rabby], null)).toBe(rabby.provider)
-  })
-  it('finds MetaMask inside window.ethereum.providers when several wallets share the slot', () => {
-    const mm = { isMetaMask: true, request: async () => null } as any
-    const other = { request: async () => null } as any
-    expect(pickProvider([], { providers: [other, mm] } as any)).toBe(mm)
-  })
-  it('falls back to a plain window.ethereum', () => {
-    const eth = { request: async () => null } as any
-    expect(pickProvider([], eth)).toBe(eth)
-  })
-  it('returns null when there is no wallet', () => {
-    expect(pickProvider([], undefined)).toBeNull()
+  it('returns null when there is no usable wallet', () => {
+    expect(pickWallet([])).toBeNull()
   })
 })

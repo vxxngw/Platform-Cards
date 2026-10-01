@@ -1,29 +1,31 @@
-import { useEffect } from 'react'
-import { ChevronDown, Copy, ExternalLink, LogOut } from 'lucide-react'
+import { ChevronDown, Copy, Droplets, ExternalLink, LogOut } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { fmtEth, fmtUsd, short, useWalletStore, walletStore } from '@/lib/tc'
+import { fmtEth, fmtUsd, short, useWalletStore } from '@/lib/tc'
 import { useEthUsd, useMe, useRefresh } from '@/lib/hooks'
 import { CHAIN_ID, addrUrl } from '@/lib/chain/config'
 import { chain } from '@/lib/chain/client'
-import { connectInjected, ensureChain, initChainWallet, useWalletChainId } from '@/lib/chain/wallet'
+import { connectWallet, disconnectWallet, ensureChain, useWalletChainId, useWalletKind } from '@/lib/chain/wallet'
+
+const SEPOLIA_FAUCET = 'https://cloud.google.com/application/web3/faucet/ethereum/sepolia'
 
 export function ChainWalletMenu() {
   const { current } = useWalletStore()
   const chainId = useWalletChainId()
+  const kind = useWalletKind()
   const me = useMe()
   const refresh = useRefresh()
   const ethUsd = useEthUsd()
-  useEffect(() => { initChainWallet() }, [])
 
   if (!current) {
-    return <Button size="sm" onClick={() => connectInjected().then(refresh).catch(() => {})}>Kết nối ví</Button>
+    return <Button size="sm" onClick={() => connectWallet().catch(() => {})}>Kết nối ví</Button>
   }
   const w = me.data?.wallet
   const wrong = chainId != null && chainId !== CHAIN_ID
+  const embedded = kind === 'privy'
   return (
     <div className="flex items-center gap-2">
       {wrong && (
@@ -47,13 +49,21 @@ export function ChainWalletMenu() {
               <span>{short(current, 10)}</span>
               <button className="text-fg-muted hover:text-fg-base" onClick={() => { navigator.clipboard?.writeText(current); toast('Đã copy địa chỉ') }}><Copy className="size-3.5" /></button>
             </div>
+            <div className="text-xs font-normal text-fg-muted">
+              {embedded ? 'Ví Privy (đăng nhập bằng email)' : `Ví ngoài${kind ? ` · ${kind}` : ''}`}
+            </div>
             {w && <div className="text-xs font-normal text-fg-muted">{fmtEth(w.balance, 6)} ETH {ethUsd ? `≈ ${fmtUsd(Number(w.balance) * ethUsd)}` : ''}</div>}
           </DropdownMenuLabel>
           {addrUrl(current) && (
             <DropdownMenuItem onClick={() => window.open(addrUrl(current), '_blank')}><ExternalLink /> Xem trên Etherscan</DropdownMenuItem>
           )}
+          {CHAIN_ID === 11155111 && (
+            <DropdownMenuItem onClick={() => { navigator.clipboard?.writeText(current); window.open(SEPOLIA_FAUCET, '_blank') }}>
+              <Droplets /> Lấy ETH Sepolia (đã copy địa chỉ)
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => walletStore.disconnect()}><LogOut /> Ngắt kết nối (trên trang này)</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => disconnectWallet().then(refresh).catch(() => {})}><LogOut /> Đăng xuất</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

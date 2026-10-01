@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CardFace, RarityBadge } from '@/components/tc/CardFace'
 import { CardDialog, RefPrice } from '@/components/tc/CardDialog'
+import { PRICE_REF_ENABLED } from '@/lib/features'
 import { connectNewWallet } from '@/components/tc/Shell'
 import { http, sendTx, fmtEth, fmtUsd, short, timeAgo, RARITY_NAMES, useWalletStore, type Card, type Listing } from '@/lib/tc'
 import { useConfig, useEthUsd, useMe, useRefresh, useSets } from '@/lib/hooks'
@@ -125,7 +126,11 @@ export default function Market({ initialSet }: { initialSet?: string }) {
           {list.map((l) => <div key={l.listingId} className={l.isBundle ? 'col-span-2' : ''}><ListingCard l={l} onOpenCard={setCard} /></div>)}
         </div>
       )}
-      <p className="text-[11px] text-fg-muted">Giá tham chiếu thị trường lấy từ Renaiss OS Index cho thẻ thật tương ứng, cập nhật mỗi 24 giờ, chỉ để tham khảo và không ảnh hưởng hợp đồng.</p>
+      <p className="text-[11px] text-fg-muted">
+        {PRICE_REF_ENABLED
+          ? 'Giá tham chiếu thị trường lấy từ Renaiss OS Index cho thẻ thật tương ứng, cập nhật mỗi 24 giờ, chỉ để tham khảo và không ảnh hưởng hợp đồng.'
+          : 'Giá tham chiếu thị trường từ Renaiss OS Index sắp ra mắt. Giá niêm yết trên chợ do người bán đặt và không phụ thuộc vào giá tham chiếu.'}
+      </p>
       <CardDialog card={card} open={!!card} onOpenChange={(o) => !o && setCard(null)} />
     </div>
   )

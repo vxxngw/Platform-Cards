@@ -1,14 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { fmtUsd } from '@/lib/tc'
 import { ChainWalletMenu } from './ChainWallet'
-import { connectInjected } from '@/lib/chain/wallet'
+import { connectWallet } from '@/lib/chain/wallet'
 import { useConfig, useEthUsd, useMe, useRefresh } from '@/lib/hooks'
 import { Link } from '@/lib/router'
 import { cn } from '@/lib/utils'
 
-/** Opens the wallet's connect prompt (MetaMask or another EIP-6963 wallet). */
+/** Opens Privy's login / connect-wallet modal. The wallet store updates once the user finishes in the modal. */
 export async function connectNewWallet(): Promise<void> {
-  await connectInjected()
+  await connectWallet()
 }
 
 const NAV = [
@@ -65,7 +65,7 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
         <p>
           Dự án học thuật phi thương mại, chỉ chạy trên mạng thử nghiệm Sepolia, không dùng tiền thật. Thẻ là bản số trên testnet, không phải thẻ vật lý, không có giá trị tài chính.
           Tên và hình ảnh thẻ Pokémon thuộc Nintendo / Creatures Inc. / GAME FREAK inc. / The Pokémon Company; dự án không liên kết hay được bảo trợ bởi các bên này.
-          Dữ liệu thẻ từ <a className="underline hover:text-fg-base" href="https://tcgdex.dev" target="_blank" rel="noreferrer">TCGdex</a>, giá tham chiếu từ <a className="underline hover:text-fg-base" href="https://index.renaissos.com" target="_blank" rel="noreferrer">Renaiss OS Index</a> (chỉ để tham khảo).
+          Dữ liệu thẻ từ <a className="underline hover:text-fg-base" href="https://tcgdex.dev" target="_blank" rel="noreferrer">TCGdex</a>, giá tham chiếu từ <a className="underline hover:text-fg-base" href="https://index.renaissos.com" target="_blank" rel="noreferrer">Renaiss OS Index</a> (sắp ra mắt, chỉ để tham khảo).
         </p>
         <p>
           {'Dữ liệu đọc trực tiếp từ 3 hợp đồng CardCollection · PackSale · Marketplace trên Sepolia (số dư, event). Giao dịch ký bằng ví của bạn; giá tham chiếu chỉ để tham khảo, không đưa vào hợp đồng.'}

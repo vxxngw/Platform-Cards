@@ -82,7 +82,7 @@ export async function http<T>(path: string, init?: RequestInit & { json?: unknow
   return j as T
 }
 
-// Real wallet flow: chờ ký (MetaMask) → đang xác nhận (có hash + link Etherscan) → thành công / revert.
+// Real wallet flow: chờ ký (ví Privy hoặc ví ngoài) → đang xác nhận (có hash + link Etherscan) → thành công / revert.
 export async function sendTx<T extends { tx?: string }>(label: string, path: string, json: unknown = {}): Promise<T> {
   const id = toast.loading(label, { description: 'Chờ ký giao dịch trong ví…' })
   try {
