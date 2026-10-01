@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react'
-import { BRAND } from '@/lib/brand'
+import { BRAND, BRAND_LOGO } from '@/lib/brand'
 import { cn } from '@/lib/utils'
 
 /** The house crest: a crowned shield bearing two crossed cards. */
@@ -34,6 +34,12 @@ export function Crest({ className, title }: { className?: string; title?: string
       </g>
     </svg>
   )
+}
+
+/** The project logo (src/assets/logoMain.png) when present, otherwise the crest. */
+export function BrandMark({ className }: { className?: string }) {
+  if (BRAND_LOGO) return <img src={BRAND_LOGO} alt={BRAND} draggable={false} className={cn('object-contain', className)} />
+  return <Crest className={className} />
 }
 
 /** Filigree corner; Frame rotates one into each corner. */
@@ -102,7 +108,7 @@ export function PageHero({ kicker, title, sub, children }: { kicker: string; tit
   return (
     <Frame strong className="overflow-hidden px-6 py-8 md:px-10 md:py-10">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(75,47,143,.45),transparent_60%),radial-gradient(ellipse_at_bottom_right,rgba(142,27,46,.25),transparent_60%)]" />
-      <Crest className="pointer-events-none absolute -right-6 -top-4 h-56 w-56 opacity-[0.07]" />
+      <BrandMark className="pointer-events-none absolute -right-6 -top-4 h-56 w-56 opacity-[0.07]" />
       <div className="relative flex flex-wrap items-end justify-between gap-6">
         <div className="max-w-2xl">
           <div className="kicker mb-2">{kicker}</div>
@@ -127,7 +133,7 @@ export function Stat({ label, value, className }: { label: string; value: ReactN
 export function EmptyState({ title, body, action, className }: { title: string; body?: ReactNode; action?: ReactNode; className?: string }) {
   return (
     <Frame className={cn('px-6 py-12 text-center', className)}>
-      <Crest className="mx-auto h-16 w-16 opacity-40" />
+      <BrandMark className="mx-auto h-16 w-16 opacity-40" />
       <div className="mt-4 font-display text-lg font-bold text-ivory">{title}</div>
       {body && <p className="mx-auto mt-1 max-w-md text-fg-subtle">{body}</p>}
       {action && <div className="mt-5 flex justify-center gap-2">{action}</div>}

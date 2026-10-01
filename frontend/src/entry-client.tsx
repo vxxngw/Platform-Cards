@@ -1,5 +1,11 @@
 import './fonts'
 import './index.css'
+import { BRAND_LOGO } from './lib/brand'
+
+if (BRAND_LOGO) {
+  const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]') ?? document.head.appendChild(Object.assign(document.createElement('link'), { rel: 'icon' }))
+  icon.href = BRAND_LOGO
+}
 
 // ---------------------------------------------------------------------------
 // Cold-start guard: verify React is real BEFORE rendering.

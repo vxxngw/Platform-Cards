@@ -23,7 +23,7 @@ class HttpError extends Error {
 }
 
 const sha256Hex = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex')
-const pinMessage = (hash, timestamp) => `Platform Cards — pin metadata\nsha256: ${hash}\ntimestamp: ${timestamp}`
+const pinMessage = (hash, timestamp) => `CARDRA — pin metadata\nsha256: ${hash}\ntimestamp: ${timestamp}`
 
 /** Validates the signed JSON string and returns [[filename, jsonText], …]. */
 function parseFiles(filesJson) {

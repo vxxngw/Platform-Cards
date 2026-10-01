@@ -6,7 +6,7 @@ import { ADDR, addrUrl } from '@/lib/chain/config'
 import { useConfig, useEthUsd, useMe } from '@/lib/hooks'
 import { Link } from '@/lib/router'
 import { BRAND, TAGLINE } from '@/lib/brand'
-import { Crest, Divider } from '@/components/royal/Ornaments'
+import { BrandMark, Divider } from '@/components/royal/Ornaments'
 import { cn } from '@/lib/utils'
 
 /** Opens Privy's login / connect-wallet modal. The wallet store updates once the user finishes in the modal. */
@@ -43,7 +43,7 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
       <header className="sticky top-0 z-40 border-b border-gold/25 bg-[linear-gradient(180deg,rgba(20,14,34,.96),rgba(13,10,22,.9))] backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 md:gap-8">
           <Link to="/" className="group flex shrink-0 items-center gap-2.5">
-            <Crest className="h-10 w-9 transition group-hover:drop-shadow-[0_0_10px_rgba(214,171,82,.6)]" />
+            <BrandMark className="h-10 w-10 transition group-hover:drop-shadow-[0_0_10px_rgba(214,171,82,.6)]" />
             <span className="hidden flex-col leading-none sm:flex">
               <span className="gold-text font-deco text-lg font-bold">{BRAND}</span>
               <span className="mt-0.5 font-display text-[9px] tracking-[0.3em] text-fg-muted">{TAGLINE.toUpperCase()}</span>
@@ -78,7 +78,7 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
           <div className="grid gap-8 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
               <div className="flex items-center gap-2.5">
-                <Crest className="h-10 w-9" />
+                <BrandMark className="h-10 w-10" />
                 <div>
                   <div className="gold-text font-deco text-lg font-bold">{BRAND}</div>
                   <div className="font-display text-[9px] tracking-[0.3em] text-fg-muted">{TAGLINE.toUpperCase()}</div>

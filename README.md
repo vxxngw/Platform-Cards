@@ -1,4 +1,4 @@
-# Platform Cards — The Royal Card Exchange (Sepolia)
+# CARDRA — The Royal Card Exchange (Sepolia)
 
 Đồ án học thuật: phát hành thẻ theo bộ, bán pack ngẫu nhiên (Chainlink VRF), chợ thứ cấp. Thẻ là **bản số trên testnet** của thẻ Pokémon TCG, dữ liệu lấy từ [TCGdex](https://tcgdex.dev).
 
@@ -10,7 +10,7 @@
 
 Biến môi trường: xem `frontend/.env.example` (phần `VITE_*` công khai trong trình duyệt; `PINATA_JWT`, `RENAISS_API_KEY`, `RENAISS_API_SECRET` chỉ ở phía server, không bao giờ đặt tên `VITE_*`) và `contracts/.env.example`.
 
-Tên thương hiệu và khẩu hiệu nằm ở `frontend/src/lib/brand.ts`; màu, font (Cinzel, Spectral, tự host qua `@fontsource`) và các lớp trang trí ở `frontend/src/index.css` và `frontend/src/components/royal/`.
+Tên thương hiệu và khẩu hiệu nằm ở `frontend/src/lib/brand.ts`; logo đặt tại `frontend/src/assets/logoMain.png` (tự dùng cho header, footer, mặt sau thẻ, modal Privy và favicon; chưa có file thì dùng huy hiệu mặc định); màu, font (Cinzel, Spectral, tự host qua `@fontsource`) và các lớp trang trí ở `frontend/src/index.css` và `frontend/src/components/royal/`.
 
 ## Chạy và kiểm tra
 
