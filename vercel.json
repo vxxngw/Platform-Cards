@@ -1,0 +1,5 @@
+{
+  "installCommand": "cd frontend && npm ci --legacy-peer-deps",
+  "buildCommand": "cd frontend && npx vite build --outDir dist/client",
+  "outputDirectory": "frontend/dist/client"
+}
