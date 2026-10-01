@@ -15,7 +15,9 @@ npx hardhat test                 # 24 tests, VRF mocked by VRFCoordinatorV2_5Moc
 npx hardhat coverage             # ~92% statements
 REPORT_GAS=1 npx hardhat test    # gas table for the report
 npx hardhat run scripts/deploy.js --network sepolia
-npx hardhat run scripts/seed.js --network sepolia
+npx hardhat run scripts/seed.js --network sepolia          # set demo cũ (v1)
+npx hardhat run scripts/seed-pokemon.js --network sepolia  # dự phòng v2: set Pokémon 151 khi TCGdex lỗi
+CHECK=1 node scripts/seed-pokemon.js                       # đối chiếu snapshot với TCGdex (cần mạng)
 ```
 
 ## Thứ tự deploy
