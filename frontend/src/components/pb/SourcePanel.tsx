@@ -124,6 +124,18 @@ export function SourcePanel({ lang, setLang, setId, setSetId, poolKeys, rewardKe
             </span>
           </div>
 
+          {setQ.data && setQ.data.cards.length > 0 && (() => {
+            const all = setQ.data.cards
+            const noImage = all.filter((c) => !c.image).length
+            const noRarity = rmap.data ? all.filter((c) => { const r = rmap.data!.get(c.id); return !r || r.toLowerCase() === 'none' }).length : 0
+            if (noImage < all.length / 2 && noRarity < all.length / 2) return null
+            return (
+              <p className="rounded border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+                TCGdex has {noImage >= all.length / 2 ? `no card images for ${noImage} of ${all.length} cards` : ''}{noImage >= all.length / 2 && noRarity >= all.length / 2 ? ' and ' : ''}{noRarity >= all.length / 2 ? `no official rarity (“None”) for ${noRarity} of ${all.length} cards` : ''} in this set yet.
+                New or special sets are often incomplete there. Pick a main-series set with full data, such as “151” (sv03.5) or “Surging Sparks” (sv08), or assign tiers by hand.
+              </p>
+            )
+          })()}
           {setQ.isLoading ? (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6">{Array.from({ length: 12 }, (_, i) => <Skeleton key={i} className="aspect-[5/7]" />)}</div>
           ) : setQ.error ? (

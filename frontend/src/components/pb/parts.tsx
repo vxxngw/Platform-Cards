@@ -12,7 +12,8 @@ export function Thumb({ image, alt, className, quality = 'low' }: { image: strin
   const [broken, setBroken] = useState(false)
   const src = imageUrl(image, quality)
   if (!src || broken) {
-    return <div className={cn('flex aspect-[5/7] items-center justify-center rounded bg-bg-subtle text-[9px] text-fg-muted', className)}>no image</div>
+    // distinguish "TCGdex has no image for this card" from "the image URL failed to load"
+    return <div className={cn('flex aspect-[5/7] items-center justify-center rounded bg-bg-subtle px-1 text-center text-[9px] text-fg-muted', className)}>{src ? 'image failed to load' : 'no image on TCGdex'}</div>
   }
   return <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setBroken(true)} className={cn('aspect-[5/7] rounded object-cover', className)} />
 }
