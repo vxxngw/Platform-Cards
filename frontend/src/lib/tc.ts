@@ -33,8 +33,8 @@ export type CollectionSet = { id: number; name: string; total: number; owned: nu
 export type ChainEvent = { id: number; contract: string; name: string; args: Record<string, unknown>; txHash: string; block: number; at: string }
 
 export const RARITY_NAMES = ['Common', 'Rare', 'Epic', 'Legendary', 'Reward']
-export const RARITY_VI = ['Thường', 'Hiếm', 'Sử thi', 'Huyền thoại', 'Thẻ thưởng']
-export const RARITY_COLOR = ['#9ca3af', '#4c9aff', '#b26bff', '#f5b942', '#ff2882']
+// Jewel tones: silver, sapphire, amethyst, gold, ruby
+export const RARITY_COLOR = ['#bdb7cc', '#5d9cec', '#b07cff', '#f2c14e', '#ff5c8a']
 export const RARITY_ODDS = [60, 28, 10, 2]
 
 // ---------- wallet store (connected addresses, kept in this browser) ----------
@@ -78,31 +78,31 @@ export async function http<T>(path: string, init?: RequestInit & { json?: unknow
   if (init?.json !== undefined) headers['content-type'] = 'application/json'
   const r = await fetch(api(path), { ...init, headers, body: init?.json !== undefined ? JSON.stringify(init.json) : init?.body })
   const j = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(j?.error || `Lỗi ${r.status}`)
+  if (!r.ok) throw new Error(j?.error || `Request failed (${r.status})`)
   return j as T
 }
 
-// Real wallet flow: chờ ký (ví Privy hoặc ví ngoài) → đang xác nhận (có hash + link Etherscan) → thành công / revert.
+// Wallet flow: awaiting signature (Privy or external wallet) → confirming (hash + Etherscan link) → confirmed / failed.
 export async function sendTx<T extends { tx?: string }>(label: string, path: string, json: unknown = {}): Promise<T> {
-  const id = toast.loading(label, { description: 'Chờ ký giao dịch trong ví…' })
+  const id = toast.loading(label, { description: 'Confirm the transaction in your wallet…' })
   try {
     const out = await http<T>(path, {
       method: 'POST', json,
       ctx: {
         onHash: (h) => toast.loading(label, {
-          id, description: `Đang xác nhận trên chain… ${short(h, 10)}`,
+          id, description: `Waiting for confirmation… ${short(h, 10)}`,
           action: txUrl(h) ? { label: 'Etherscan', onClick: () => window.open(txUrl(h), '_blank') } : undefined,
         }),
       },
     })
     const u = out.tx ? txUrl(out.tx) : ''
-    toast.success(`${label} — thành công`, {
+    toast.success(`${label} — confirmed`, {
       id, description: out.tx ? `tx ${short(out.tx, 10)}` : undefined,
       action: u ? { label: 'Etherscan', onClick: () => window.open(u, '_blank') } : undefined,
     })
     return out
   } catch (e) {
-    toast.error(`${label} — thất bại`, { id, description: (e as Error).message })
+    toast.error(`${label} — failed`, { id, description: (e as Error).message })
     throw e
   }
 }
@@ -120,10 +120,10 @@ export function fmtUsd(n: number | null | undefined) {
 }
 export function timeAgo(iso: string) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
-  if (s < 60) return `${Math.floor(s)} giây trước`
-  if (s < 3600) return `${Math.floor(s / 60)} phút trước`
-  if (s < 86400) return `${Math.floor(s / 3600)} giờ trước`
-  return `${Math.floor(s / 86400)} ngày trước`
+  if (s < 60) return `${Math.floor(s)}s ago`
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`
+  return `${Math.floor(s / 86400)}d ago`
 }
 
 // ---------- verifiable draw (same algorithm as PackSale.fulfillRandomWords) ----------

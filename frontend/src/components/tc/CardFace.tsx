@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { cardImageSrc } from '@/lib/pokemon/metadata'
 import { RARITY_COLOR, RARITY_NAMES, type Card } from '@/lib/tc'
 import { cn } from '@/lib/utils'
+import { Crest } from '@/components/royal/Ornaments'
 
 function rng(seed: number) {
   let a = seed >>> 0
@@ -55,58 +56,66 @@ export function CardArt({ card }: { card: Pick<Card, 'id' | 'hue' | 'rarity'> })
   )
 }
 
-export function CardFace({ card, className, count, dim, onClick, quality = 'low' }: {
-  card: Card; className?: string; count?: number; dim?: boolean; onClick?: () => void; quality?: 'low' | 'high'
+/** `compact` keeps only the frame and the rarity gem, for thumbnails too small to carry text. */
+export function CardFace({ card, className, count, dim, onClick, quality = 'low', compact }: {
+  card: Card; className?: string; count?: number; dim?: boolean; onClick?: () => void; quality?: 'low' | 'high'; compact?: boolean
 }) {
   const color = RARITY_COLOR[card.rarity]
   const glow = card.rarity >= 2
-  // v2 cards carry the TCGdex image; v1/demo cards (or a broken link) fall back to the generated art
+  // Pokémon cards carry the TCGdex image; hand-made cards (or a broken link) fall back to the generated art
   const [broken, setBroken] = useState(false)
   const src = !broken ? cardImageSrc(card.image, quality) : null
   return (
     <div
       onClick={onClick}
-      title={src ? `${card.name}${card.localId ? ` · #${card.localId}` : ''}${card.officialRarity ? ` · ${card.officialRarity}` : ''}` : undefined}
-      className={cn('relative aspect-[5/7] w-full select-none overflow-hidden rounded-xl border-2 bg-black transition', onClick && 'cursor-pointer hover:-translate-y-0.5', dim && 'opacity-35 grayscale', className)}
-      style={{ borderColor: color, boxShadow: glow && !dim ? `0 0 18px -4px ${color}` : undefined }}
+      title={`${card.name}${card.localId ? ` · #${card.localId}` : ''}${card.officialRarity ? ` · ${card.officialRarity}` : ''}`}
+      className={cn(
+        'group/card relative aspect-[5/7] w-full select-none overflow-hidden rounded-[10px] border-2 bg-night p-[3px] transition duration-300',
+        onClick && 'cursor-pointer hover:-translate-y-1 hover:shadow-[0_14px_30px_-12px_rgba(0,0,0,.9)]',
+        dim && 'opacity-30 grayscale',
+        className,
+      )}
+      style={{ borderColor: color, boxShadow: glow && !dim ? `0 0 22px -6px ${color}` : undefined }}
     >
-      {src ? (
-        <img src={src} alt={card.name} loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)} className="absolute inset-0 h-full w-full object-cover" />
-      ) : (
-        <div className="absolute inset-0"><CardArt card={card} /></div>
-      )}
-      {card.rarity >= 3 && !dim && (
-        <div className="pointer-events-none absolute inset-0 opacity-40 mix-blend-overlay" style={{ background: 'linear-gradient(115deg, transparent 30%, rgba(255,255,255,.7) 45%, transparent 60%)' }} />
-      )}
-      <div className="absolute left-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] text-white/80">#{card.id}</div>
-      {count != null && count > 0 && (
-        <div className="absolute right-1.5 top-1.5 rounded bg-white px-1.5 py-0.5 font-mono text-[10px] font-bold text-black">×{count}</div>
-      )}
-      {src ? (
-        // the card art already prints its name: keep only a slim tier strip so the artwork stays readable
-        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/90 to-black/10 px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>
-          <span>{RARITY_NAMES[card.rarity]}</span>
-          <span className="font-mono text-white/60">{card.isReward ? 'REWARD' : card.localId ?? card.cardNo}</span>
-        </div>
-      ) : (
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-2 pb-2 pt-6">
-          <div className="truncate text-[13px] font-bold leading-tight text-white">{card.name}</div>
-          <div className="mt-0.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>
-            <span>{RARITY_NAMES[card.rarity]}</span>
-            <span className="font-mono text-white/50">{card.isReward ? 'REWARD' : `${card.cardNo}`}</span>
+      <div className="relative h-full w-full overflow-hidden rounded-[7px] ring-1 ring-gold/40">
+        {src ? (
+          <img src={src} alt={card.name} loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)} className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0"><CardArt card={card} /></div>
+        )}
+        {card.rarity >= 3 && !dim && <div className="foil pointer-events-none absolute inset-0 opacity-60" />}
+        {!compact && <div className="absolute left-1 top-1 rounded-sm bg-night/75 px-1 py-px font-mono text-[9px] text-ivory/80 ring-1 ring-gold/30">#{card.id}</div>}
+        {count != null && count > 0 && (
+          <div className="absolute right-1 top-1 rounded-sm bg-[linear-gradient(180deg,#f6dc95,#d6ab52)] px-1.5 py-px font-display text-[10px] font-bold text-primary-foreground shadow">×{count}</div>
+        )}
+        {card.isReward && !compact && (
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 rounded-b-md bg-[linear-gradient(180deg,#c73b45,#8e1b2e)] px-2 pb-0.5 font-display text-[8px] font-bold tracking-[0.2em] text-ivory shadow">REWARD</div>
+        )}
+        {compact ? (
+          <span className="absolute bottom-1 left-1 size-2 rotate-45 ring-1 ring-night" style={{ background: color }} />
+        ) : (
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-night via-night/85 to-transparent px-1.5 pb-1 pt-4">
+          {!src && <div className="truncate font-display text-[12px] font-bold leading-tight text-ivory">{card.name}</div>}
+          <div className="flex items-center justify-between gap-1 font-display text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color }}>
+            <span className="flex items-center gap-1"><span className="size-1.5 rotate-45" style={{ background: color }} />{RARITY_NAMES[card.rarity]}</span>
+            <span className="font-mono text-[9px] normal-case tracking-normal text-ivory/55">{card.isReward ? '' : card.localId ?? card.cardNo}</span>
           </div>
         </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
 
+/** The back of every card: violet velvet, gold lattice and the house crest. */
 export function CardBack({ className }: { className?: string }) {
   return (
-    <div className={cn('relative aspect-[5/7] w-full overflow-hidden rounded-xl border-2 border-white/15 bg-[#141414]', className)}>
-      <div className="absolute inset-3 rounded-lg border border-white/10" style={{ background: 'repeating-linear-gradient(45deg, rgba(255,40,130,.10) 0 6px, transparent 6px 14px)' }} />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="rotate-[-8deg] rounded-md border border-white/20 bg-black/70 px-3 py-1 font-mono text-xs tracking-[0.3em] text-white/70">ERC-1155</div>
+    <div className={cn('relative aspect-[5/7] w-full overflow-hidden rounded-[10px] border-2 border-gold/70 bg-[radial-gradient(circle_at_50%_40%,#3d2678_0%,#1a1030_55%,#0d0a16_100%)] p-[3px] shadow-[0_10px_24px_-14px_rgba(0,0,0,.9)]', className)}>
+      <div className="relative h-full w-full rounded-[7px] ring-1 ring-gold/40" style={{ background: 'repeating-linear-gradient(45deg, rgba(214,171,82,.09) 0 1px, transparent 1px 10px), repeating-linear-gradient(-45deg, rgba(214,171,82,.09) 0 1px, transparent 1px 10px)' }}>
+        <div className="absolute inset-[10%] rounded-[50%/38%] border border-gold/35" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Crest className="h-[42%] w-[42%] drop-shadow-[0_0_10px_rgba(214,171,82,.45)]" />
+        </div>
       </div>
     </div>
   )
@@ -115,7 +124,8 @@ export function CardBack({ className }: { className?: string }) {
 export function RarityBadge({ rarity }: { rarity: number }) {
   const c = RARITY_COLOR[rarity]
   return (
-    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: c, background: `${c}1f` }}>
+    <span className="inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-display text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: c, borderColor: `${c}55`, background: `${c}14` }}>
+      <span className="size-1.5 rotate-45" style={{ background: c }} />
       {RARITY_NAMES[rarity]}
     </span>
   )

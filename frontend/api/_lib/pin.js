@@ -23,41 +23,41 @@ class HttpError extends Error {
 }
 
 const sha256Hex = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex')
-const pinMessage = (hash, timestamp) => `Sàn Thẻ Bộ — pin metadata\nsha256: ${hash}\ntimestamp: ${timestamp}`
+const pinMessage = (hash, timestamp) => `Platform Cards — pin metadata\nsha256: ${hash}\ntimestamp: ${timestamp}`
 
 /** Validates the signed JSON string and returns [[filename, jsonText], …]. */
 function parseFiles(filesJson) {
   let obj
-  try { obj = JSON.parse(filesJson) } catch { throw new HttpError(400, 'filesJson không phải JSON hợp lệ') }
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new HttpError(400, 'filesJson phải là object {"<id>.json": {...}}')
+  try { obj = JSON.parse(filesJson) } catch { throw new HttpError(400, 'filesJson is not valid JSON') }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new HttpError(400, 'filesJson must be an object {"<id>.json": {...}}')
   const names = Object.keys(obj)
-  if (names.length === 0) throw new HttpError(400, 'Không có file nào để pin')
-  if (names.length > MAX_FILES) throw new HttpError(413, `Tối đa ${MAX_FILES} file`)
+  if (names.length === 0) throw new HttpError(400, 'There are no files to pin')
+  if (names.length > MAX_FILES) throw new HttpError(413, `At most ${MAX_FILES} files`)
   return names.map((name) => {
-    if (!/^[1-9]\d{0,8}\.json$/.test(name)) throw new HttpError(400, `Tên file không hợp lệ: ${name.slice(0, 30)}`)
+    if (!/^[1-9]\d{0,8}\.json$/.test(name)) throw new HttpError(400, `Invalid file name: ${name.slice(0, 30)}`)
     const v = obj[name]
-    if (!v || typeof v !== 'object' || Array.isArray(v)) throw new HttpError(400, `${name} phải là object JSON`)
+    if (!v || typeof v !== 'object' || Array.isArray(v)) throw new HttpError(400, `${name} must be a JSON object`)
     const text = JSON.stringify(v)
-    if (Buffer.byteLength(text) > MAX_FILE_BYTES) throw new HttpError(413, `${name} lớn hơn ${MAX_FILE_BYTES} byte`)
+    if (Buffer.byteLength(text) > MAX_FILE_BYTES) throw new HttpError(413, `${name} is larger than ${MAX_FILE_BYTES} bytes`)
     return [name, text]
   })
 }
 
 /** Throws HttpError unless `body` is a fresh, correctly signed request from an admin. */
 async function verifyPinRequest(body, { now = Date.now(), isAdmin }) {
-  if (!body || typeof body !== 'object') throw new HttpError(400, 'Body không hợp lệ')
+  if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body')
   const { address, signature, timestamp, filesJson } = body
-  if (typeof filesJson !== 'string' || typeof signature !== 'string' || typeof address !== 'string') throw new HttpError(400, 'Thiếu address/signature/filesJson')
+  if (typeof filesJson !== 'string' || typeof signature !== 'string' || typeof address !== 'string') throw new HttpError(400, 'Missing address/signature/filesJson')
   const ts = Number(timestamp)
-  if (!Number.isFinite(ts) || Math.abs(now - ts) > MAX_SKEW_MS) throw new HttpError(401, 'Chữ ký đã hết hạn, hãy ký lại')
+  if (!Number.isFinite(ts) || Math.abs(now - ts) > MAX_SKEW_MS) throw new HttpError(401, 'The signature expired, please sign again')
   let signer
   try {
     signer = await recoverMessageAddress({ message: pinMessage(sha256Hex(filesJson), ts), signature })
   } catch {
-    throw new HttpError(401, 'Chữ ký không hợp lệ')
+    throw new HttpError(401, 'Invalid signature')
   }
-  if (signer.toLowerCase() !== address.toLowerCase()) throw new HttpError(401, 'Chữ ký không khớp địa chỉ ví')
-  if (!(await isAdmin(signer))) throw new HttpError(403, 'Ví này không có quyền Admin')
+  if (signer.toLowerCase() !== address.toLowerCase()) throw new HttpError(401, 'The signature does not match the wallet address')
+  if (!(await isAdmin(signer))) throw new HttpError(403, 'This wallet is not an admin')
   return { address: signer, files: parseFiles(filesJson) }
 }
 
@@ -79,9 +79,9 @@ async function pinDirectory(files, { jwt, apiUrl = 'https://api.pinata.cloud', f
   form.append('pinataMetadata', JSON.stringify({ name }))
   form.append('pinataOptions', JSON.stringify({ cidVersion: 1 }))
   const r = await fetchImpl(`${apiUrl}/pinning/pinFileToIPFS`, { method: 'POST', headers: { Authorization: `Bearer ${jwt}` }, body: form, signal: AbortSignal.timeout(60000) })
-  if (!r.ok) throw new HttpError(502, `Pinata trả về ${r.status}: ${(await r.text().catch(() => '')).slice(0, 200)}`)
+  if (!r.ok) throw new HttpError(502, `Pinata answered ${r.status}: ${(await r.text().catch(() => '')).slice(0, 200)}`)
   const j = await r.json()
-  if (!j?.IpfsHash) throw new HttpError(502, 'Pinata không trả về IpfsHash')
+  if (!j?.IpfsHash) throw new HttpError(502, 'Pinata returned no IpfsHash')
   return j.IpfsHash
 }
 
@@ -104,20 +104,20 @@ function createPinRouter({ isAdmin, env = process.env, fetchImpl = fetch, now = 
   // text/plain on purpose: a metadata folder can be far larger than the default 100 kB express.json() limit.
   router.post('/', express.text({ type: () => true, limit: MAX_BODY_BYTES }), async (req, res) => {
     try {
-      if (!isAdmin) throw new HttpError(503, 'Server chưa cấu hình ADMIN_ADDRESSES hoặc COLLECTION_ADDRESS nên chưa thể xác thực Admin')
-      if (mode() !== 'pinata') throw new HttpError(503, 'Server chưa cấu hình PINATA_JWT nên chưa thể pin metadata lên IPFS')
-      if (limited(req.ip)) throw new HttpError(429, 'Gửi quá nhiều yêu cầu pin, thử lại sau')
+      if (!isAdmin) throw new HttpError(503, 'The server has no ADMIN_ADDRESSES or COLLECTION_ADDRESS, so it cannot verify admins')
+      if (mode() !== 'pinata') throw new HttpError(503, 'The server has no PINATA_JWT, so it cannot pin metadata to IPFS')
+      if (limited(req.ip)) throw new HttpError(429, 'Too many pin requests, try again later')
       let body
-      try { body = JSON.parse(typeof req.body === 'string' ? req.body : '') } catch { throw new HttpError(400, 'Body phải là JSON') }
+      try { body = JSON.parse(typeof req.body === 'string' ? req.body : '') } catch { throw new HttpError(400, 'The body must be JSON') }
       const { files } = await verifyPinRequest(body, { now: now(), isAdmin })
 
       const cid = await pinDirectory(files, { jwt: env.PINATA_JWT, apiUrl: env.PINATA_API_URL, fetchImpl, name: `tcg-metadata-${now()}` })
       res.json({ mode: 'pinata', cid, baseUri: `ipfs://${cid}/`, count: files.length })
     } catch (e) {
       if (e instanceof HttpError) return res.status(e.status).json({ error: e.message })
-      if (e?.type === 'entity.too.large') return res.status(413).json({ error: 'Body quá lớn' })
+      if (e?.type === 'entity.too.large') return res.status(413).json({ error: 'The body is too large' })
       console.error('[pin]', e)
-      res.status(500).json({ error: 'Lỗi máy chủ: ' + String(e?.message || e) })
+      res.status(500).json({ error: 'Server error: ' + String(e?.message || e) })
     }
   })
   return router

@@ -102,7 +102,7 @@ describe('buildCardMetadata (spec v2 §4)', () => {
       lang: 'en',
       priceRef: { set_name: '151', item_no: '199', variation: '', language: 'en', card_name: 'Charizard ex' },
     })
-    expect(m.description).toContain('Không liên kết với Nintendo')
+    expect(m.description).toContain('Not affiliated with Nintendo')
   })
   it('omits priceRef and image for hand-entered cards', () => {
     const m = buildCardMetadata(card({ i: 1, custom: true, tcgdexId: '', image: null }), 'Common')
@@ -121,7 +121,7 @@ describe('buildMetadataFolder', () => {
     expect(keys).toHaveLength(24 + 11 + 1)
     expect(keys[0]).toBe('1.json')
     expect(files['1.json']).toEqual({ name: 'old one' })
-    expect((files['2.json'] as { name: string }).name).toBe('Thẻ #2') // filler for ids we could not fetch
+    expect((files['2.json'] as { name: string }).name).toBe('Card #2') // filler for ids we could not fetch
     expect((files['25.json'] as { attributes: any[] }).attributes.at(-1)).toEqual({ trait_type: 'Tier', value: 'Common' })
     expect((files['35.json'] as { attributes: any[] }).attributes.at(-1)).toEqual({ trait_type: 'Tier', value: 'Legendary' })
     expect((files['36.json'] as { attributes: any[] }).attributes.at(-1)).toEqual({ trait_type: 'Tier', value: REWARD_TIER })
@@ -142,7 +142,7 @@ describe('parseCardMetadata', () => {
     expect(p.priceRef).toEqual({ set_name: '151', item_no: '199', variation: '', language: 'en', card_name: 'Charizard ex' })
   })
   it('tolerates the old v1 shape and garbage', () => {
-    const v1 = parseCardMetadata({ name: 'Rồng Lửa #1', image: 'ipfs://<IMAGES_CID>/1.png', hue: 40, priceRef: { game: 'pokemon', q: 'charizard' }, attributes: [{ trait_type: 'Rarity', value: 'Legendary' }] })
+    const v1 = parseCardMetadata({ name: 'Fire Dragon #1', image: 'ipfs://<IMAGES_CID>/1.png', hue: 40, priceRef: { game: 'pokemon', q: 'charizard' }, attributes: [{ trait_type: 'Rarity', value: 'Legendary' }] })
     expect(v1.image).toBeUndefined() // placeholder image is ignored
     expect(v1.tier).toBe('Legendary')
     expect(v1.priceRef).toEqual({ q: 'charizard', game: 'pokemon' })
@@ -191,11 +191,11 @@ describe('previewPool', () => {
   })
   it('warns about empty tiers and unusual compositions', () => {
     const noLeg = pool.map((c) => (c.tier === 3 ? { ...c, tier: 2 as const } : c))
-    expect(previewPool(noLeg).warnings.join(' ')).toContain('Legendary không có thẻ')
+    expect(previewPool(noLeg).warnings.join(' ')).toContain('Legendary tier has no cards')
     const skew = pool.map((c, i) => (i === 0 ? { ...c, tier: 1 as const } : c))
-    expect(previewPool(skew).warnings.join(' ')).toContain('Cơ cấu khuyến nghị')
+    expect(previewPool(skew).warnings.join(' ')).toContain('recommended mix')
     const noCommon = pool.map((c) => ({ ...c, tier: Math.max(1, c.tier ?? 1) as 1 | 2 | 3 }))
-    expect(previewPool(noCommon).warnings.join(' ')).toContain('Common trống')
+    expect(previewPool(noCommon).warnings.join(' ')).toContain('Common tier is empty')
   })
 })
 
@@ -210,5 +210,14 @@ describe('mapLimit', () => {
     })
     expect(out).toEqual([2, 4, 6, 8, 10, 12, 14])
     expect(peak).toBeLessThanOrEqual(3)
+  })
+})
+
+describe('pin message', () => {
+  it('is byte-for-byte the same on the client and in the /api/pin function', async () => {
+    const { pinMessage } = await import('./pin')
+    // @ts-expect-error — plain JS module without type declarations
+    const server = await import('../../../api/_lib/pin.js')
+    expect(pinMessage('ab12', 1700000000000)).toBe(server.pinMessage('ab12', 1700000000000))
   })
 })

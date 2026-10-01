@@ -6,7 +6,7 @@ import { cardCollectionAbi, marketplaceAbi, packSaleAbi } from './abi'
 import { ADDR, ADMIN_ADDRESS, MAX_PACKS_PER_TX, REWARD_MAX_SUPPLY } from './config'
 import { publicClient, readMany, walletClient } from './client'
 import { getCatalog, invalidateCatalog, knownRawMetadata } from './catalog'
-import { allEvents, blockTimes, byName, iso, sync } from './events'
+import { allEvents, blockTimes, byName, iso, sync, type Ev } from './events'
 import { ensureChain } from './wallet'
 
 export type TxCtx = { onHash?: (hash: Hex) => void }
@@ -19,50 +19,50 @@ const ADMIN_ROLE = keccak256(toBytes('ADMIN_ROLE'))
 
 // ---------- errors ----------
 const REVERTS: Record<string, string> = {
-  WrongValue: 'Số ETH gửi kèm không đúng giá.',
-  BadQuantity: `Số lượng pack phải từ 1 đến ${MAX_PACKS_PER_TX}.`,
-  SoldOut: 'Không đủ pack còn lại.',
-  NotOnSale: 'Bộ này chưa/không còn mở bán pack.',
-  NotEnoughPacks: 'Bạn không đủ pack chưa mở.',
-  NotStuck: 'Yêu cầu chưa quá 1 giờ hoặc đã được xử lý.',
-  NotClaimable: 'Chưa có số ngẫu nhiên hoặc yêu cầu này đã nhận thẻ rồi.',
-  AllCardsExhausted: 'Bộ thẻ đã hết supply.',
-  MaxSupplyExceeded: 'Thẻ đã chạm maxSupply.',
-  InvalidSetSize: 'Bộ thẻ phải có 8–12 thẻ.',
-  LengthMismatch: 'Số độ hiếm và maxSupply không khớp.',
-  UnknownSet: 'Bộ không tồn tại.',
-  IncompleteSet: 'Bạn chưa đủ thẻ của bộ này.',
-  InvalidPrice: 'Giá phải lớn hơn 0.',
-  InvalidAmount: 'Số lượng phải lớn hơn 0.',
-  NotActive: 'Listing đã bán hoặc đã huỷ.',
-  SelfBuy: 'Không thể tự mua listing của chính mình.',
-  NotSeller: 'Chỉ người bán mới huỷ được listing.',
-  NothingToWithdraw: 'Không có ETH để rút.',
-  FeeTooHigh: 'Phí tối đa 1000 bps (10%).',
-  EnforcedPause: 'Hợp đồng đang tạm dừng.',
-  AccessControlUnauthorizedAccount: 'Ví này không có quyền Admin.',
-  ERC1155MissingApprovalForAll: 'Cần cấp quyền setApprovalForAll cho Marketplace trước.',
-  ERC1155InsufficientBalance: 'Bạn không đủ số dư thẻ.',
+  WrongValue: 'The ETH sent does not match the price.',
+  BadQuantity: `Pack quantity must be between 1 and ${MAX_PACKS_PER_TX}.`,
+  SoldOut: 'Not enough packs left.',
+  NotOnSale: 'Packs of this set are not on sale.',
+  NotEnoughPacks: 'You do not have enough unopened packs.',
+  NotStuck: 'The request is less than an hour old or was already handled.',
+  NotClaimable: 'The random number has not arrived yet, or these cards were already claimed.',
+  AllCardsExhausted: 'Every card in this set has reached its max supply.',
+  MaxSupplyExceeded: 'This card has reached its max supply.',
+  InvalidSetSize: 'A set must have 8–12 cards.',
+  LengthMismatch: 'Rarities and max supplies do not line up.',
+  UnknownSet: 'This set does not exist.',
+  IncompleteSet: 'You do not own every card of this set yet.',
+  InvalidPrice: 'The price must be greater than 0.',
+  InvalidAmount: 'The amount must be greater than 0.',
+  NotActive: 'This listing was already sold or cancelled.',
+  SelfBuy: 'You cannot buy your own listing.',
+  NotSeller: 'Only the seller can cancel this listing.',
+  NothingToWithdraw: 'There is no ETH to withdraw.',
+  FeeTooHigh: 'The fee is capped at 1000 bps (10%).',
+  EnforcedPause: 'The contracts are paused.',
+  AccessControlUnauthorizedAccount: 'This wallet is not an admin.',
+  ERC1155MissingApprovalForAll: 'Approve the Marketplace (setApprovalForAll) first.',
+  ERC1155InsufficientBalance: 'You do not hold enough of this card.',
 }
 
 export function explain(e: unknown): string {
   if (e instanceof BaseError) {
     const rejected = e.walk((x) => (x as { code?: number }).code === 4001 || (x as Error).name === 'UserRejectedRequestError')
-    if (rejected) return 'Bạn đã từ chối ký giao dịch.'
+    if (rejected) return 'You rejected the request in your wallet.'
     const funds = e.walk((x) => (x as Error).name === 'InsufficientFundsError')
-    if (funds) return 'Ví không đủ ETH (giá + phí gas).'
+    if (funds) return 'Not enough ETH for the price plus gas.'
     const rev = e.walk((x) => x instanceof ContractFunctionRevertedError) as ContractFunctionRevertedError | null
     if (rev) {
       const n = rev.data?.errorName
       if (n && REVERTS[n]) return REVERTS[n]
-      if (/0x79bfd401/.test(rev.message)) return 'PackSale chưa được thêm làm consumer của VRF subscription (vrf.chain.link).'
+      if (/0x79bfd401/.test(rev.message)) return 'PackSale is not a consumer of the VRF subscription yet (vrf.chain.link).'
       return rev.reason || n || rev.shortMessage
     }
-    if (/0x79bfd401/.test(e.message)) return 'PackSale chưa được thêm làm consumer của VRF subscription (vrf.chain.link).'
-    if (/0x1f6a65b6/.test(e.message)) return 'VRF subscription không tồn tại hoặc sai subscriptionId.'
+    if (/0x79bfd401/.test(e.message)) return 'PackSale is not a consumer of the VRF subscription yet (vrf.chain.link).'
+    if (/0x1f6a65b6/.test(e.message)) return 'The VRF subscription does not exist or the subscriptionId is wrong.'
     return e.shortMessage || e.message
   }
-  return (e as Error)?.message || 'Lỗi không xác định'
+  return (e as Error)?.message || 'Unknown error'
 }
 
 async function write(ctx: TxCtx | undefined, from: string, address: Hex, abi: readonly any[], functionName: string, args: unknown[] = [], value?: bigint) {
@@ -73,7 +73,7 @@ async function write(ctx: TxCtx | undefined, from: string, address: Hex, abi: re
     const hash = await walletClient().writeContract(request as any)
     ctx?.onHash?.(hash)
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
-    if (receipt.status !== 'success') throw new Error('Giao dịch bị revert on-chain.')
+    if (receipt.status !== 'success') throw new Error('The transaction reverted on chain.')
     invalidateCatalog()
     return { hash, receipt }
   } catch (e) {
@@ -82,7 +82,7 @@ async function write(ctx: TxCtx | undefined, from: string, address: Hex, abi: re
 }
 
 const need = (addr: string | null) => {
-  if (!addr) throw new Error('Hãy kết nối ví trước.')
+  if (!addr) throw new Error('Connect your wallet first.')
   return addr
 }
 const num = (v: unknown) => Number(v)
@@ -225,7 +225,7 @@ async function toRequestView(r: ReturnType<typeof requestsOf>[number]): Promise<
 async function getCardHistory(id: number) {
   const cat = await getCatalog()
   const card = cat.cards.get(id)
-  if (!card) throw new Error('Thẻ không tồn tại')
+  if (!card) throw new Error('This card does not exist')
   const listed = new Map<number, Active>()
   for (const e of byName('Listed', 'Marketplace')) {
     listed.set(num(e.args.listingId), { listingId: num(e.args.listingId), seller: e.args.seller, ids: e.args.ids.map(num), amounts: e.args.amounts.map(num), price: e.args.price, isBundle: e.args.isBundle, block: e.block })
@@ -249,6 +249,65 @@ async function getEvents(limit: number): Promise<ChainEvent[]> {
   const evs = allEvents().slice(-limit).reverse()
   const t = await blockTimes(evs.map((e) => e.block))
   return evs.map((e, i) => ({ id: e.block * 1000 + e.logIndex + i, contract: e.contract, name: e.name, args: plain(e.name, e.args), txHash: e.txHash, block: e.block, at: iso(t.get(e.block) ?? Date.now()) }))
+}
+
+/** Everything the connected wallet did or received: purchases, openings, listings, sales on both sides, redemptions, withdrawals. */
+async function getActivity(addr: string | null, limit: number): Promise<ChainEvent[]> {
+  const a = need(addr).toLowerCase()
+  const cat = await getCatalog()
+  const listings = new Map<number, { seller: string; ids: number[]; isBundle: boolean }>()
+  for (const e of byName('Listed', 'Marketplace')) listings.set(num(e.args.listingId), { seller: String(e.args.seller).toLowerCase(), ids: e.args.ids.map(num), isBundle: e.args.isBundle })
+  const reqBuyer = new Map<string, string>()
+  for (const e of byName('OpenRequested', 'PackSale')) reqBuyer.set(String(e.args.reqId), String(e.args.buyer).toLowerCase())
+  const is = (v: unknown) => String(v ?? '').toLowerCase() === a
+  const mine = (e: Ev) => {
+    const x = e.args
+    switch (e.name) {
+      case 'PacksPurchased': case 'OpenRequested': case 'RandomnessReady': case 'PackOpened': return is(x.buyer)
+      case 'RequestCancelled': return reqBuyer.get(String(x.reqId)) === a
+      case 'Listed': return is(x.seller)
+      case 'Sold': return is(x.buyer) || listings.get(num(x.listingId))?.seller === a
+      case 'Cancelled': return listings.get(num(x.listingId))?.seller === a
+      case 'SetRedeemed': return is(x.user)
+      case 'ApprovalForAll': return is(x.account)
+      case 'Withdrawn': return e.contract === 'Marketplace' && is(x.to)
+      default: return false
+    }
+  }
+  const evs = allEvents().filter(mine).slice(-limit).reverse()
+  const t = await blockTimes(evs.map((e) => e.block))
+  const setName = (id: unknown) => cat.sets.find((s) => s.id === num(id))?.name
+  const cardName = (id: unknown) => cat.cards.get(num(id))?.name
+  return evs.map((e, i) => {
+    const extra: Record<string, unknown> = {}
+    if (e.name === 'PacksPurchased' || e.name === 'OpenRequested' || e.name === 'SetRedeemed') extra.setName = setName(e.args.setId)
+    if (e.name === 'SetRedeemed') extra.cardName = cardName(e.args.rewardCardId)
+    if (e.name === 'PackOpened') {
+      const best = (e.args.cardIds as bigint[]).map((id) => cat.cards.get(num(id))).filter(Boolean).sort((x, y) => y!.rarity - x!.rarity)[0]
+      if (best) { extra.cardName = best.name; extra.rarity = best.rarity }
+    }
+    if (e.name === 'Listed' || e.name === 'Sold' || e.name === 'Cancelled') {
+      const l = listings.get(num(e.args.listingId))
+      if (l) { extra.isBundle = l.isBundle; extra.cardName = l.isBundle ? setName(cat.cards.get(l.ids[0])?.setId) : cardName(l.ids[0]) }
+      if (e.name === 'Sold') extra.side = is(e.args.buyer) ? 'buy' : 'sell'
+    }
+    return { id: e.block * 1000 + e.logIndex + i, contract: e.contract, name: e.name, args: { ...plain(e.name, e.args), ...extra }, txHash: e.txHash, block: e.block, at: iso(t.get(e.block) ?? Date.now()) }
+  })
+}
+
+export type Pull = { reqId: string; buyer: string; setName?: string; at: string; txHash: string; cards: Card[] }
+/** Most recent pack openings across all players, newest first (the "Latest pulls" strip). */
+async function getPulls(limit: number): Promise<Pull[]> {
+  const cat = await getCatalog()
+  const setOf = new Map<string, number>()
+  for (const e of byName('OpenRequested', 'PackSale')) setOf.set(String(e.args.reqId), num(e.args.setId))
+  const evs = byName('PackOpened', 'PackSale').slice(-limit).reverse()
+  const t = await blockTimes(evs.map((e) => e.block))
+  return evs.map((e) => ({
+    reqId: String(e.args.reqId), buyer: e.args.buyer, txHash: e.txHash, at: iso(t.get(e.block) ?? Date.now()),
+    setName: cat.sets.find((s) => s.id === setOf.get(String(e.args.reqId)))?.name,
+    cards: (e.args.cardIds as bigint[]).map((id) => cat.cards.get(num(id))).filter(Boolean) as Card[],
+  }))
 }
 
 function getStats() {
@@ -311,7 +370,7 @@ async function post(path: string, body: any, addr: string | null, ctx?: TxCtx): 
     let last: Hex | undefined
     if ((await publicClient.getBalance({ address: P })) > 0n) last = (await W(P, packSaleAbi, 'withdraw', [getAddress(me)])).hash
     if ((await rd<bigint>(M, marketplaceAbi, 'accruedFees')) > 0n) last = (await W(M, marketplaceAbi, 'withdrawFees', [getAddress(me)])).hash
-    if (!last) throw new Error('Không có doanh thu để rút.')
+    if (!last) throw new Error('There is no revenue to withdraw.')
     return { tx: last }
   }
   if (path === 'tc/admin/pause') {
@@ -320,12 +379,11 @@ async function post(path: string, body: any, addr: string | null, ctx?: TxCtx): 
       const cur = await rd<boolean>(addr, abi, 'paused')
       if (cur !== !!body.paused) last = (await W(addr, abi, body.paused ? 'pause' : 'unpause')).hash
     }
-    if (!last) throw new Error('Trạng thái đã đúng như yêu cầu.')
+    if (!last) throw new Error('The contracts are already in that state.')
     return { tx: last }
   }
   if (path === 'tc/admin/fee') return { tx: (await W(M, marketplaceAbi, 'setFee', [BigInt(body.bps)])).hash }
-  if (path === 'tc/faucet') throw new Error('Dùng faucet Sepolia bên ngoài (ví dụ sepoliafaucet.com) để nhận ETH testnet.')
-  throw new Error(`Chưa hỗ trợ ${path} ở chế độ on-chain`)
+    throw new Error(`Unsupported action: ${path}`)
 }
 
 /** What the Pack Builder needs before publishing: the ids the next set will get and the metadata of every existing token. */
@@ -366,7 +424,7 @@ export async function chainHttp(path: string, init: Init | undefined, addr: stri
   if (p === 'tc/sets') return (await getCatalog()).sets
   if ((m = p.match(/^tc\/sets\/(\d+)$/))) {
     const s = (await getCatalog()).sets.find((x) => x.id === Number(m![1]))
-    if (!s) throw new Error('Bộ không tồn tại')
+    if (!s) throw new Error('This set does not exist')
     return s
   }
   if (p === 'tc/collection') return getCollection(addr)
@@ -375,12 +433,13 @@ export async function chainHttp(path: string, init: Init | undefined, addr: stri
   if (p === 'tc/packs/requests') return Promise.all(requestsOf(need(addr)).reverse().slice(0, 15).map(toRequestView))
   if ((m = p.match(/^tc\/packs\/requests\/(\d+)$/))) {
     const r = requestsOf().find((x) => x.reqId === m![1])
-    if (!r) throw new Error('Không tìm thấy yêu cầu')
+    if (!r) throw new Error('Request not found')
     return toRequestView(r)
   }
   if (p === 'tc/stats') return getStats()
   if (p === 'tc/events') return getEvents(Math.min(Number(q.get('limit')) || 25, 100))
   if (p === 'tc/builder/context') return getBuilderContext()
-  if (p === 'tc/wallets') return []
-  throw new Error(`Chưa hỗ trợ ${p} ở chế độ on-chain`)
+  if (p === 'tc/activity') return getActivity(addr, Math.min(Number(q.get('limit')) || 60, 200))
+  if (p === 'tc/pulls') return getPulls(Math.min(Number(q.get('limit')) || 12, 50))
+  throw new Error(`Unsupported query: ${p}`)
 }

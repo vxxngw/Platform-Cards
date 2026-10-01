@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CardFace, RarityBadge } from '@/components/tc/CardFace'
 import { CardDialog, RefPrice } from '@/components/tc/CardDialog'
+import { EmptyState, Frame, PageHero, Stat } from '@/components/royal/Ornaments'
 import { PRICE_REF_ENABLED } from '@/lib/features'
 import { connectNewWallet } from '@/components/tc/Shell'
 import { http, sendTx, fmtEth, fmtUsd, short, timeAgo, RARITY_NAMES, useWalletStore, type Card, type Listing } from '@/lib/tc'
 import { useConfig, useEthUsd, useMe, useRefresh, useSets } from '@/lib/hooks'
-import { Link } from '@/lib/router'
+import { cn } from '@/lib/utils'
 
-const sel = 'h-9 rounded-md border border-border bg-background px-2 text-sm'
+type Stats = { sales: number; volume: string; activeListings: number }
 
 function ListingCard({ l, onOpenCard }: { l: Listing; onOpenCard: (c: Card) => void }) {
   const { current } = useWalletStore()
@@ -19,7 +19,7 @@ function ListingCard({ l, onOpenCard }: { l: Listing; onOpenCard: (c: Card) => v
   const ethUsd = useEthUsd()
   const refresh = useRefresh()
   const [busy, setBusy] = useState(false)
-  const mine = current && l.seller === current
+  const mine = !!current && l.seller.toLowerCase() === current.toLowerCase()
   const price = Number(l.price)
   const balance = Number(me.data?.wallet?.balance || 0)
   const first = l.items[0]
@@ -28,108 +28,113 @@ function ListingCard({ l, onOpenCard }: { l: Listing; onOpenCard: (c: Card) => v
   async function act(kind: 'buy' | 'cancel') {
     setBusy(true)
     try {
-      await sendTx(kind === 'buy' ? `Mua listing #${l.listingId}` : `Huỷ listing #${l.listingId}`, `tc/listings/${l.listingId}/${kind}`)
+      await sendTx(kind === 'buy' ? `Buy listing #${l.listingId}` : `Cancel listing #${l.listingId}`, `tc/listings/${l.listingId}/${kind}`)
       refresh()
-    } catch { /* toast */ } finally { setBusy(false) }
+    } catch { /* toast shown */ } finally { setBusy(false) }
   }
 
   return (
-    <div className="flex flex-col rounded-xl border border-border p-3">
+    <Frame corners={false} className={cn('flex h-full flex-col p-3 transition hover:border-gold/50', l.isBundle && 'royal-panel-strong')}>
       {l.isBundle ? (
-        <div className="relative grid grid-cols-4 gap-1">
-          {l.items.slice(0, 8).map((it, i) => it.card && <CardFace key={i} card={it.card} onClick={() => onOpenCard(it.card!)} />)}
-          <span className="absolute -left-1 -top-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">NGUYÊN BỘ · {l.items.length} thẻ</span>
+        <div className="relative">
+          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+            {l.items.slice(0, 12).map((it, i) => it.card && <CardFace key={i} card={it.card} compact onClick={() => onOpenCard(it.card!)} />)}
+          </div>
+          <span className="absolute -left-1 -top-1 rounded-sm border border-gold-deep bg-[linear-gradient(180deg,#f6dc95,#d6ab52)] px-1.5 py-0.5 font-display text-[9px] font-black tracking-[0.16em] text-primary-foreground">FULL SET · {l.items.length} CARDS</span>
         </div>
       ) : card ? (
-        <div className="mx-auto w-full max-w-[150px]"><CardFace card={card} count={first.amount} onClick={() => onOpenCard(card)} /></div>
+        <div className="mx-auto w-full max-w-[170px]"><CardFace card={card} count={first.amount} onClick={() => onOpenCard(card)} /></div>
       ) : null}
       <div className="mt-3 flex-1 space-y-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-semibold">{l.isBundle ? l.setName : card?.name}</span>
+          <span className="truncate font-display text-[15px] font-bold text-ivory">{l.isBundle ? l.setName : card?.name}</span>
           {!l.isBundle && card && <RarityBadge rarity={card.rarity} />}
         </div>
         {!l.isBundle && card?.officialRarity && (
-          <div className="truncate text-[10px] text-fg-muted">{card.officialRarity}{card.localId ? ` · #${card.localId}` : ''}{card.setName ? ` · ${card.setName}` : ''}</div>
+          <div className="truncate text-xs text-fg-muted">{card.officialRarity}{card.localId ? ` · #${card.localId}` : ''}{card.setName ? ` · ${card.setName}` : ''}</div>
         )}
-        <div className="text-[11px] text-fg-muted">
-          #{l.listingId} · {l.isBundle ? 'trọn bộ' : l.setName} · {mine ? 'của bạn' : short(l.seller)} · {timeAgo(l.createdAt)}
-        </div>
+        <div className="text-xs text-fg-muted">#{l.listingId} · {mine ? 'your listing' : `by ${short(l.seller)}`} · {timeAgo(l.createdAt)}</div>
         <div className="flex items-baseline gap-1.5 pt-1">
-          <span className="font-mono text-lg font-bold">{fmtEth(l.price, 6)}</span><span className="text-xs text-fg-subtle">ETH</span>
-          {ethUsd && <span className="text-[11px] text-fg-muted">≈ {fmtUsd(price * ethUsd)}</span>}
+          <span className="font-display text-xl font-bold text-gold-bright">{fmtEth(l.price, 6)}</span><span className="font-display text-xs tracking-widest text-fg-subtle">ETH</span>
+          {ethUsd && <span className="ml-auto text-xs text-fg-muted">≈ {fmtUsd(price * ethUsd)}</span>}
         </div>
-        {!l.isBundle && first.amount > 1 && <div className="text-[11px] text-fg-muted">{first.amount} bản · {fmtEth(price / first.amount, 6)} ETH/thẻ</div>}
+        {!l.isBundle && first.amount > 1 && <div className="text-xs text-fg-muted">{first.amount} copies · {fmtEth(price / first.amount, 6)} ETH each</div>}
         {!l.isBundle && card?.priceRef && <RefPrice card={card} compact />}
       </div>
       <div className="mt-3">
-        {!current ? <Button size="sm" variant="outline" className="w-full" onClick={() => connectNewWallet().then(refresh)}>Kết nối ví để mua</Button>
-          : mine ? <Button size="sm" variant="outline" className="w-full" disabled={busy} onClick={() => act('cancel')}>Huỷ niêm yết</Button>
-          : <Button size="sm" className="w-full" disabled={busy || balance < price} onClick={() => act('buy')}>{balance < price ? 'Không đủ ETH' : 'Mua ngay'}</Button>}
+        {!current ? <Button size="sm" variant="outline" className="w-full" onClick={() => connectNewWallet().then(refresh).catch(() => {})}>Connect to buy</Button>
+          : mine ? <Button size="sm" variant="outline" className="w-full" disabled={busy} onClick={() => act('cancel')}>{busy ? 'Withdrawing…' : 'Cancel listing'}</Button>
+          : <Button size="sm" className="w-full" disabled={busy || balance < price} onClick={() => act('buy')}>{busy ? 'Buying…' : balance < price ? 'Not enough ETH' : 'Buy now'}</Button>}
       </div>
-    </div>
+    </Frame>
   )
 }
+
+const SELECT = 'royal-input min-w-0'
 
 export default function Market({ initialSet }: { initialSet?: string }) {
   const sets = useSets()
   const cfg = useConfig()
+  const stats = useQuery({ queryKey: ['stats'], queryFn: () => http<Stats>('tc/stats'), refetchInterval: 30000 })
   const [f, setF] = useState({ setId: initialSet || '', rarity: '', kind: '', min: '', max: '', sort: 'newest', mine: false })
   const { current } = useWalletStore()
   const [card, setCard] = useState<Card | null>(null)
   const params = new URLSearchParams({ setId: f.setId, rarity: f.rarity, kind: f.kind, min: f.min, max: f.max, sort: f.sort })
   const q = useQuery({ queryKey: ['listings', params.toString()], queryFn: () => http<Listing[]>(`tc/listings?${params}`), refetchInterval: 20000 })
-  const list = (q.data || []).filter((l) => !f.mine || l.seller === current)
+  const list = (q.data || []).filter((l) => !f.mine || (current && l.seller.toLowerCase() === current.toLowerCase()))
+  const fee = (cfg.data?.feeBps ?? 250) / 100
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black">Chợ thẻ</h1>
-          <p className="text-sm text-fg-subtle">Giá cố định, thẻ nằm trong escrow của hợp đồng. Phí sàn {(cfg.data?.feeBps ?? 250) / 100}% trừ vào người bán.</p>
+    <div className="space-y-8">
+      <PageHero kicker="The Grand Bazaar" title="Marketplace"
+        sub={<>Fixed-price trades between collectors. Listed cards wait in the contract's escrow until sold or withdrawn; sellers pay a {fee}% fee and collect proceeds from their Profile.</>}>
+        <div className="grid grid-cols-2 gap-6">
+          <Stat label="Listed now" value={stats.data?.activeListings?.toLocaleString()} />
+          <Stat label="Volume" value={stats.data ? `${fmtEth(stats.data.volume, 3)} ETH` : undefined} />
         </div>
-        <Link to="/collection" className="text-sm text-primary hover:underline">Niêm yết thẻ của bạn →</Link>
-      </div>
+      </PageHero>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <select className={sel} value={f.setId} onChange={(e) => setF({ ...f, setId: e.target.value })}>
-          <option value="">Tất cả bộ</option>
+      <Frame corners={false} className="flex flex-wrap items-center gap-2 p-3">
+        <select className={SELECT} value={f.setId} onChange={(e) => setF({ ...f, setId: e.target.value })} aria-label="Set">
+          <option value="">All sets</option>
           {(sets.data || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-        <select className={sel} value={f.rarity} onChange={(e) => setF({ ...f, rarity: e.target.value })}>
-          <option value="">Mọi độ hiếm</option>
+        <select className={SELECT} value={f.rarity} onChange={(e) => setF({ ...f, rarity: e.target.value })} aria-label="Rarity">
+          <option value="">Any rarity</option>
           {RARITY_NAMES.map((r, i) => <option key={r} value={i}>{r}</option>)}
         </select>
-        <select className={sel} value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>
-          <option value="">Lẻ + nguyên bộ</option><option value="single">Thẻ lẻ</option><option value="bundle">Nguyên bộ</option>
+        <select className={SELECT} value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })} aria-label="Listing type">
+          <option value="">Singles & sets</option><option value="single">Single cards</option><option value="bundle">Full sets</option>
         </select>
-        <Input className="h-9 w-28" placeholder="Giá từ" value={f.min} onChange={(e) => setF({ ...f, min: e.target.value.replace(',', '.') })} />
-        <Input className="h-9 w-28" placeholder="đến (ETH)" value={f.max} onChange={(e) => setF({ ...f, max: e.target.value.replace(',', '.') })} />
-        <select className={sel} value={f.sort} onChange={(e) => setF({ ...f, sort: e.target.value })}>
-          <option value="newest">Mới nhất</option><option value="price_asc">Giá tăng dần</option><option value="price_desc">Giá giảm dần</option>
+        <input className={cn(SELECT, 'w-28')} placeholder="Min ETH" inputMode="decimal" value={f.min} onChange={(e) => setF({ ...f, min: e.target.value.replace(',', '.') })} />
+        <input className={cn(SELECT, 'w-28')} placeholder="Max ETH" inputMode="decimal" value={f.max} onChange={(e) => setF({ ...f, max: e.target.value.replace(',', '.') })} />
+        <select className={SELECT} value={f.sort} onChange={(e) => setF({ ...f, sort: e.target.value })} aria-label="Sort">
+          <option value="newest">Newest</option><option value="price_asc">Price: low to high</option><option value="price_desc">Price: high to low</option>
         </select>
         {current && (
-          <label className="flex items-center gap-1.5 text-sm text-fg-subtle">
-            <input type="checkbox" checked={f.mine} onChange={(e) => setF({ ...f, mine: e.target.checked })} /> Của tôi
+          <label className="flex items-center gap-2 px-1 text-sm text-fg-subtle">
+            <input type="checkbox" className="accent-[#d6ab52]" checked={f.mine} onChange={(e) => setF({ ...f, mine: e.target.checked })} /> My listings
           </label>
         )}
-        <span className="ml-auto text-xs text-fg-muted">{list.length} listing</span>
-      </div>
+        <span className="ml-auto font-display text-xs tracking-[0.14em] text-fg-muted">{list.length} LISTING{list.length === 1 ? '' : 'S'}</span>
+      </Frame>
 
       {q.isLoading ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-72 rounded-xl" />)}</div>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-80 rounded-xl" />)}</div>
+      ) : q.error ? (
+        <EmptyState title="The bazaar is out of reach" body="Listings could not be read from Sepolia right now. Try again shortly." />
       ) : list.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-fg-muted">
-          Chưa có listing nào khớp bộ lọc. Mở pack rồi niêm yết thẻ trùng ở trang <Link to="/collection" className="text-primary hover:underline">Bộ sưu tập</Link>.
-        </div>
+        <EmptyState title="No listings match" body="Open packs, then list your duplicates from Profile → Collection."
+          action={<><Button asChild variant="outline"><a href="#/gacha">Open packs</a></Button><Button asChild><a href="#/profile?tab=collection">List my cards</a></Button></>} />
       ) : (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
           {list.map((l) => <div key={l.listingId} className={l.isBundle ? 'col-span-2' : ''}><ListingCard l={l} onOpenCard={setCard} /></div>)}
         </div>
       )}
-      <p className="text-[11px] text-fg-muted">
+      <p className="text-xs text-fg-muted">
         {PRICE_REF_ENABLED
-          ? 'Giá tham chiếu thị trường lấy từ Renaiss OS Index cho thẻ thật tương ứng, cập nhật mỗi 24 giờ, chỉ để tham khảo và không ảnh hưởng hợp đồng.'
-          : 'Giá tham chiếu thị trường từ Renaiss OS Index sắp ra mắt. Giá niêm yết trên chợ do người bán đặt và không phụ thuộc vào giá tham chiếu.'}
+          ? 'Market reference prices come from Renaiss OS Index for the matching real card, refreshed every 24 hours. They are for reference only and never touch the contracts.'
+          : 'Market reference prices from Renaiss OS Index are coming soon. Listing prices are set by sellers and never depend on reference prices.'}
       </p>
       <CardDialog card={card} open={!!card} onOpenChange={(o) => !o && setCard(null)} />
     </div>

@@ -9,11 +9,11 @@ import type { PoolCard } from './types'
 
 export type StepId = 'prepare' | 'pin' | 'create' | 'baseuri' | 'pack'
 export const STEPS: { id: StepId; label: string }[] = [
-  { id: 'prepare', label: 'Sinh JSON metadata (gộp các thẻ cũ)' },
-  { id: 'pin', label: 'Pin metadata (ký tin nhắn, không tốn gas)' },
-  { id: 'create', label: 'createSet(…) — giao dịch 1' },
-  { id: 'baseuri', label: 'setBaseURI(…) — giao dịch 2' },
-  { id: 'pack', label: 'configurePack(…) — giao dịch 3, mở bán' },
+  { id: 'prepare', label: 'Build the metadata JSON (existing cards included)' },
+  { id: 'pin', label: 'Pin metadata (sign a message, no gas)' },
+  { id: 'create', label: 'createSet(…) — transaction 1' },
+  { id: 'baseuri', label: 'setBaseURI(…) — transaction 2' },
+  { id: 'pack', label: 'configurePack(…) — transaction 3, opens the sale' },
 ]
 export type StepStatus = 'idle' | 'running' | 'done' | 'error'
 
@@ -68,7 +68,7 @@ export async function runPublish(input: PublishInput, state: RunState, hooks: Ho
     const ctx = await loadContext()
     st.firstCardId = ctx.nextCardId
     files = buildMetadataFolder({ firstCardId: ctx.nextCardId, pool: ordered, reward: input.reward, existing: ctx.existing })
-    return `${Object.keys(files).length} file · thẻ mới từ id #${ctx.nextCardId}`
+    return `${Object.keys(files).length} files · new cards from id #${ctx.nextCardId}`
   })
 
   await step('pin', async () => {
@@ -76,13 +76,13 @@ export async function runPublish(input: PublishInput, state: RunState, hooks: Ho
     st.baseUri = out.baseUri
     st.pinMode = out.mode
     st.cid = out.cid
-    return out.mode === 'pinata' ? `IPFS ${out.baseUri}` : `Lưu trên máy chủ ứng dụng · ${out.baseUri}`
+    return `IPFS ${out.baseUri}`
   })
 
   await step('create', async () => {
     // ids were fixed when the JSON was generated: make sure nobody created a set in between
     const ctx = await loadContext()
-    if (ctx.nextCardId !== st.firstCardId) throw new Error(`Id thẻ tiếp theo đã đổi (${st.firstCardId} → ${ctx.nextCardId}); hãy bắt đầu lại để sinh lại metadata.`)
+    if (ctx.nextCardId !== st.firstCardId) throw new Error(`The next card id changed (${st.firstCardId} → ${ctx.nextCardId}); start over to rebuild the metadata.`)
     const out = await sendTx<{ tx: string; setId: number; cardIds: number[]; rewardCardId: number }>(`createSet “${input.setName}”`, 'tc/sets', {
       name: input.setName,
       cards: ordered.map((c) => ({ rarity: c.tier, maxSupply: c.maxSupply })),
@@ -90,7 +90,7 @@ export async function runPublish(input: PublishInput, state: RunState, hooks: Ho
     })
     const want = ordered.map((_, i) => st.firstCardId! + i)
     if (out.cardIds.join() !== want.join() || out.rewardCardId !== st.firstCardId! + ordered.length) {
-      throw new Error('Id thẻ on-chain không khớp metadata đã pin — dừng lại, đừng mở bán set này.')
+      throw new Error('On-chain card ids do not match the pinned metadata — stop here and do not open sales for this set.')
     }
     st.setId = out.setId
     return `setId #${out.setId}`
@@ -98,12 +98,12 @@ export async function runPublish(input: PublishInput, state: RunState, hooks: Ho
 
   await step('baseuri', async () => {
     const ctx = await loadContext()
-    if (ctx.currentBaseUri === st.baseUri) return 'base URI đã đúng'
+    if (ctx.currentBaseUri === st.baseUri) return 'base URI already correct'
     await sendTx('setBaseURI', 'tc/admin/baseuri', { uri: st.baseUri })
   })
 
   await step('pack', async () => {
-    await sendTx(`configurePack bộ #${st.setId}`, `tc/sets/${st.setId}/pack`, { price: input.priceEth, supply: input.packs, onSale: true })
+    await sendTx(`configurePack set #${st.setId}`, `tc/sets/${st.setId}/pack`, { price: input.priceEth, supply: input.packs, onSale: true })
   })
   return st
 }

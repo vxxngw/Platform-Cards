@@ -24,17 +24,17 @@ export function TierSelect({ value, onChange, disabled }: { value: Tier | null; 
       style={{ color: value == null ? undefined : RARITY_COLOR[value], borderColor: value == null ? 'var(--color-destructive, #ef4444)' : undefined }}
       value={value ?? ''}
       disabled={disabled}
-      aria-label="Bậc on-chain"
+      aria-label="On-chain tier"
       onChange={(e) => onChange(Number(e.target.value) as Tier)}
     >
-      {value == null && <option value="">— chọn bậc —</option>}
+      {value == null && <option value="">— pick a tier —</option>}
       {TIER_NAMES.map((n, t) => <option key={n} value={t}>{n}</option>)}
     </select>
   )
 }
 
 export function TierDot({ tier, className }: { tier: Tier | null | undefined; className?: string }) {
-  if (tier == null) return <span className={cn('inline-block size-2 rounded-full border border-fg-muted', className)} title="Chưa có bậc" />
+  if (tier == null) return <span className={cn('inline-block size-2 rounded-full border border-fg-muted', className)} title="No tier yet" />
   return <span className={cn('inline-block size-2 rounded-full', className)} style={{ background: RARITY_COLOR[tier] }} title={TIER_NAMES[tier]} />
 }
 

@@ -70,7 +70,7 @@ export function SourcePanel({ lang, setLang, setId, setSetId, poolKeys, rewardKe
       try {
         detail = await getCard(lang, brief.id) // spec v2 §3 step 2: GET /v2/{lang}/cards/<cardId> fills the form
       } catch {
-        toast.warning('Không tải được chi tiết thẻ từ TCGdex', { description: 'Dùng dữ liệu rút gọn của set; kiểm tra lại độ hiếm và bậc.' })
+        toast.warning('Could not load the card details from TCGdex', { description: 'Using the set’s summary data; double-check the rarity and tier.' })
         detail = { id: brief.id, localId: brief.localId, name: brief.name, image: brief.image, rarity: rmap.data?.get(brief.id), set: { id: setQ.data!.id, name: setQ.data!.name } }
       }
       onPick(poolCardFromTcgdex(lang, detail))
@@ -83,51 +83,51 @@ export function SourcePanel({ lang, setLang, setId, setSetId, poolKeys, rewardKe
     <div className="space-y-3 rounded-xl border border-border p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <div className="font-semibold">1. Chọn thẻ từ TCGdex</div>
-          <p className="text-xs text-fg-muted">Dữ liệu và ảnh từ tcgdex.net (miễn phí, không cần key). Ảnh không được sao chép, chỉ trỏ về assets.tcgdex.net.</p>
+          <div className="font-semibold">1. Pick cards from TCGdex</div>
+          <p className="text-xs text-fg-muted">Data and images from tcgdex.net (free, no key). Images are never copied; they point at assets.tcgdex.net.</p>
         </div>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-[150px_1fr]">
-        <select className="h-9 rounded-md border border-border bg-background px-2 text-sm" value={lang} onChange={(e) => { setLang(e.target.value); setSetId('') }} aria-label="Ngôn ngữ">
+        <select className="h-9 rounded-md border border-border bg-background px-2 text-sm" value={lang} onChange={(e) => { setLang(e.target.value); setSetId('') }} aria-label="Language">
           {LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
         </select>
         <div className="grid gap-2 sm:grid-cols-[1fr_2fr]">
-          <Input className="h-9" placeholder="Lọc set…" value={setSearch} onChange={(e) => setSetSearch(e.target.value)} aria-label="Lọc set" />
+          <Input className="h-9" placeholder="Filter sets…" value={setSearch} onChange={(e) => setSetSearch(e.target.value)} aria-label="Filter sets" />
           <select className="h-9 min-w-0 rounded-md border border-border bg-background px-2 text-sm" value={setId} onChange={(e) => setSetId(e.target.value)} aria-label="Set Pokémon" disabled={sets.isLoading}>
-            <option value="">{sets.isLoading ? 'Đang tải danh sách set…' : sets.error ? 'Không tải được TCGdex' : '— chọn set —'}</option>
-            {setOptions.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.id}) · {s.cardCount.total} thẻ</option>)}
+            <option value="">{sets.isLoading ? 'Loading sets…' : sets.error ? 'TCGdex unavailable' : '— pick a set —'}</option>
+            {setOptions.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.id}) · {s.cardCount.total} cards</option>)}
           </select>
         </div>
       </div>
-      {lang === 'ja' && <p className="text-[11px] text-amber-300">Bản Nhật đẹp nhưng tên set khó khớp với Renaiss Index, giá tham chiếu thường sẽ trống.</p>}
-      {sets.error && <p className="text-xs text-destructive">TCGdex đang lỗi hoặc bị chặn mạng. Dùng “Thêm thẻ nhập tay” hoặc script seed dự phòng.</p>}
+      {lang === 'ja' && <p className="text-[11px] text-amber-300">Japanese prints look great, but their set names rarely match Renaiss Index, so reference prices will usually be empty.</p>}
+      {sets.error && <p className="text-xs text-destructive">TCGdex is down or blocked. Use “Add a card by hand” or the fallback seed script.</p>}
 
       {setId && (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex overflow-hidden rounded-md border border-border text-xs" role="radiogroup" aria-label="Chọn vào">
-              {([['pool', 'Thẻ trong pack'], ['reward', 'Thẻ thưởng']] as const).map(([m, label]) => (
+            <div className="inline-flex overflow-hidden rounded-md border border-border text-xs" role="radiogroup" aria-label="Pick into">
+              {([['pool', 'Pack cards'], ['reward', 'Reward card']] as const).map(([m, label]) => (
                 <button key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}
                   className={cn('px-2.5 py-1.5 font-medium', mode === m ? 'bg-primary text-primary-foreground' : 'bg-background text-fg-subtle hover:bg-bg-subtle')}>{label}</button>
               ))}
             </div>
-            <Input className="h-8 w-40" placeholder="Tìm tên / số thẻ" value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} aria-label="Tìm theo tên" />
-            <select className="h-8 rounded-md border border-border bg-background px-2 text-xs" value={rarityFilter} onChange={(e) => setRarityFilter(e.target.value)} aria-label="Lọc theo độ hiếm">
-              <option value="">Mọi độ hiếm</option>
+            <Input className="h-8 w-40" placeholder="Search name / number" value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} aria-label="Search by name" />
+            <select className="h-8 rounded-md border border-border bg-background px-2 text-xs" value={rarityFilter} onChange={(e) => setRarityFilter(e.target.value)} aria-label="Filter by rarity">
+              <option value="">Any rarity</option>
               {rarityOptions.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
-            <label className="flex items-center gap-1.5 text-xs text-fg-subtle"><input type="checkbox" checked={hideUsed} onChange={(e) => setHideUsed(e.target.checked)} />Ẩn thẻ đã chọn</label>
+            <label className="flex items-center gap-1.5 text-xs text-fg-subtle"><input type="checkbox" checked={hideUsed} onChange={(e) => setHideUsed(e.target.checked)} />Hide picked cards</label>
             <span className="ml-auto text-[11px] text-fg-muted">
-              {setQ.data ? `${cards.length}/${setQ.data.cards.length} thẻ` : ''}
-              {progress ? ` · đang tải độ hiếm ${progress[0]}/${progress[1]}` : rmap.isError ? ' · không tải được độ hiếm' : ''}
+              {setQ.data ? `${cards.length}/${setQ.data.cards.length} cards` : ''}
+              {progress ? ` · loading rarities ${progress[0]}/${progress[1]}` : rmap.isError ? ' · rarities unavailable' : ''}
             </span>
           </div>
 
           {setQ.isLoading ? (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6">{Array.from({ length: 12 }, (_, i) => <Skeleton key={i} className="aspect-[5/7]" />)}</div>
           ) : setQ.error ? (
-            <p className="text-sm text-destructive">Không tải được set này từ TCGdex.</p>
+            <p className="text-sm text-destructive">Could not load this set from TCGdex.</p>
           ) : (
             <div className="grid max-h-[620px] grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6">
               {cards.map((c) => {
@@ -150,7 +150,7 @@ export function SourcePanel({ lang, setLang, setId, setSetId, poolKeys, rewardKe
                   </button>
                 )
               })}
-              {cards.length === 0 && <div className="col-span-full py-8 text-center text-sm text-fg-muted">Không có thẻ nào khớp bộ lọc.</div>}
+              {cards.length === 0 && <div className="col-span-full py-8 text-center text-sm text-fg-muted">No card matches the filters.</div>}
             </div>
           )}
         </>

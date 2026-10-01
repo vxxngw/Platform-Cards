@@ -1,8 +1,8 @@
 import { DEFAULT_MAX_SUPPLY, TIER_NAMES, suggestTier, type Tier } from './tiers'
 import type { CardMetadata, PoolCard, TcgdexCard } from './types'
 
-export const CARD_DESCRIPTION = 'Bản số học thuật của thẻ Pokémon TCG. Không liên kết với Nintendo hay The Pokémon Company.'
-export const REWARD_DESCRIPTION = `${CARD_DESCRIPTION} Thẻ thưởng chỉ nhận được khi đổi (burn) trọn bộ.`
+export const CARD_DESCRIPTION = 'Academic digital replica of a Pokémon TCG card. Not affiliated with Nintendo or The Pokémon Company.'
+export const REWARD_DESCRIPTION = `${CARD_DESCRIPTION} Reward card, obtainable only by burning a complete set.`
 export const REWARD_TIER = 'Reward'
 
 const HAS_EXT = /\.(webp|png|jpe?g|avif|gif)(\?.*)?$/i
@@ -79,7 +79,7 @@ export function orderPool(pool: PoolCard[]): PoolCard[] {
 
 /** Placeholder JSON for ids whose metadata cannot be fetched, so the new folder still resolves every existing token. */
 export function fillerMetadata(id: number): CardMetadata {
-  return { name: `Thẻ #${id}`, description: CARD_DESCRIPTION, attributes: [], source: 'custom' }
+  return { name: `Card #${id}`, description: CARD_DESCRIPTION, attributes: [], source: 'custom' }
 }
 
 /**
