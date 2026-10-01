@@ -2,14 +2,15 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { fmtUsd } from '@/lib/tc'
 import { ChainWalletMenu } from './ChainWallet'
 import { connectWallet } from '@/lib/chain/wallet'
-import { ADDR, addrUrl } from '@/lib/chain/config'
+import { ADDR, ADMIN_ADDRESS, addrUrl } from '@/lib/chain/config'
+import { useWalletStore } from '@/lib/tc'
 
 const ZERO = /^0x0{40}$/i
 const MISSING_CONFIG = ([['VITE_COLLECTION_ADDRESS', ADDR.collection], ['VITE_PACKSALE_ADDRESS', ADDR.packSale], ['VITE_MARKETPLACE_ADDRESS', ADDR.market]] as const)
   .filter(([, a]) => ZERO.test(a)).map(([k]) => k)
 import { useConfig, useEthUsd, useMe } from '@/lib/hooks'
 import { Link } from '@/lib/router'
-import { BRAND, TAGLINE } from '@/lib/brand'
+import { BRAND } from '@/lib/brand'
 import { BrandMark, Divider } from '@/components/royal/Ornaments'
 import { cn } from '@/lib/utils'
 
@@ -37,7 +38,9 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
   const cfg = useConfig()
   const ethUsd = useEthUsd()
   const unopened = (me.data?.unopened || []).reduce((s, u) => s + u.count, 0)
-  const isAdmin = !!me.data?.wallet?.isAdmin
+  const { current } = useWalletStore()
+  // also show the link to the configured admin address, so a failed role check can be diagnosed on /admin
+  const isAdmin = !!me.data?.wallet?.isAdmin || (!!current && !!ADMIN_ADDRESS && current.toLowerCase() === ADMIN_ADDRESS)
   const nav = isAdmin ? [...NAV, { to: '/admin', label: 'Admin' }] : NAV
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -48,10 +51,7 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 md:gap-8">
           <Link to="/" className="group flex shrink-0 items-center gap-2.5">
             <BrandMark className="h-10 w-10 transition group-hover:drop-shadow-[0_0_10px_rgba(214,171,82,.6)]" />
-            <span className="hidden flex-col leading-none sm:flex">
-              <span className="gold-text font-deco text-lg font-bold">{BRAND}</span>
-              <span className="mt-0.5 font-display text-[9px] tracking-[0.3em] text-fg-muted">{TAGLINE.toUpperCase()}</span>
-            </span>
+            <span className="gold-text hidden font-deco text-xl font-bold leading-none sm:inline">{BRAND}</span>
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
             {nav.map((n) => <NavLink key={n.to} to={n.to} label={n.label} active={isActive(path, n.to)} badge={n.to === '/profile' ? unopened : 0} />)}
@@ -88,10 +88,7 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
             <div>
               <div className="flex items-center gap-2.5">
                 <BrandMark className="h-10 w-10" />
-                <div>
-                  <div className="gold-text font-deco text-lg font-bold">{BRAND}</div>
-                  <div className="font-display text-[9px] tracking-[0.3em] text-fg-muted">{TAGLINE.toUpperCase()}</div>
-                </div>
+                <div className="gold-text font-deco text-xl font-bold">{BRAND}</div>
               </div>
               <p className="mt-3 max-w-sm text-sm text-fg-subtle">
                 Open sealed packs drawn by Chainlink VRF, complete royal sets, and trade cards peer to peer — every move settled on chain.
