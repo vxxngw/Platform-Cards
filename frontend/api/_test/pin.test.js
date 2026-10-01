@@ -1,9 +1,9 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const http = require('node:http')
-const express = require('express')
-const { generatePrivateKey, privateKeyToAccount } = require('viem/accounts')
-const P = require('../lib/pin')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import http from 'node:http'
+import express from 'express'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+import * as P from '../_lib/pin.js'
 
 const admin = privateKeyToAccount(generatePrivateKey())
 const stranger = privateKeyToAccount(generatePrivateKey())
@@ -18,9 +18,12 @@ async function signedBody(filesObj, account, { ts = Date.now(), claim } = {}) {
   return JSON.stringify({ address: claim ?? account.address, signature, timestamp: ts, filesJson })
 }
 
+const fakePinata = async () => ({ ok: true, json: async () => ({ IpfsHash: 'bafyfake' }), text: async () => '' })
+const withPinata = { PINATA_JWT: 'jwt-test' }
+
 async function serve(router) {
   const app = express()
-  app.use(express.json()) // same as the SDK: 100 kB default cap, JSON content types only
+  app.use(express.json()) // 100 kB default cap, JSON content types only (the pin route must not depend on it)
   app.use('/api/pin', router)
   const server = http.createServer(app)
   await new Promise((r) => server.listen(0, '127.0.0.1', r))
@@ -81,25 +84,20 @@ test('parseFiles enforces names, object values and size caps', () => {
   assert.throws(() => P.parseFiles('not json'), (e) => e.status === 400)
 })
 
-test('router (server mode): GET reports the mode; POST stores rows and needs no Pinata', async () => {
-  const rows = []
-  const q = async (sql, params) => { rows.push({ sql, params }); return [] }
-  const s = await serve(P.createPinRouter({ isAdmin, q, env: {} }))
+test('router without PINATA_JWT: GET reports it, POST answers 503 and never reaches Pinata', async () => {
+  let called = false
+  const s = await serve(P.createPinRouter({ isAdmin, env: {}, fetchImpl: async () => { called = true; return fakePinata() } }))
   try {
-    assert.deepEqual(await (await fetch(s.base)).json(), { mode: 'server', authConfigured: true, maxFiles: 2000, maxFileBytes: 20480 })
+    assert.deepEqual(await (await fetch(s.base)).json(), { mode: 'unconfigured', authConfigured: true, maxFiles: 2000, maxFileBytes: 20480 })
     const r = await post(s.base, await signedBody(files(25, 12), admin))
-    assert.equal(r.status, 200)
-    assert.deepEqual(await r.json(), { mode: 'server', count: 12 })
-    assert.equal(rows.length, 1)
-    assert.match(rows[0].sql, /INSERT INTO tc_metadata .* ON CONFLICT \(id\) DO UPDATE/)
-    assert.equal(rows[0].params.length, 24)
-    assert.equal(rows[0].params[0], 25)
-    assert.equal(JSON.parse(rows[0].params[1]).name, 'Card 25')
+    assert.equal(r.status, 503)
+    assert.match((await r.json()).error, /PINATA_JWT/)
+    assert.equal(called, false)
   } finally { await s.close() }
 })
 
-test('router accepts bodies far above the SDK 100 kB JSON cap (text/plain)', async () => {
-  const s = await serve(P.createPinRouter({ isAdmin, q: async () => [], env: {} }))
+test('router accepts bodies far above the default 100 kB JSON cap (text/plain)', async () => {
+  const s = await serve(P.createPinRouter({ isAdmin, env: withPinata, fetchImpl: fakePinata }))
   try {
     const big = Object.fromEntries(Array.from({ length: 80 }, (_, i) => [`${i + 1}.json`, { ...card(i + 1), pad: 'p'.repeat(3000) }]))
     const body = await signedBody(big, admin)
@@ -111,7 +109,7 @@ test('router accepts bodies far above the SDK 100 kB JSON cap (text/plain)', asy
 })
 
 test('router errors: 401 / 403 / 400 / 503 / 429', async () => {
-  const s = await serve(P.createPinRouter({ isAdmin, q: async () => [], env: {} }))
+  const s = await serve(P.createPinRouter({ isAdmin, env: withPinata, fetchImpl: fakePinata }))
   try {
     assert.equal((await post(s.base, await signedBody(files(1, 1), stranger))).status, 403)
     assert.equal((await post(s.base, await signedBody(files(1, 1), admin, { ts: Date.now() - 3600_000 }))).status, 401)
@@ -119,7 +117,7 @@ test('router errors: 401 / 403 / 400 / 503 / 429', async () => {
     assert.equal((await post(s.base, await signedBody({ 'x.json': {} }, admin))).status, 400)
   } finally { await s.close() }
 
-  const off = await serve(P.createPinRouter({ isAdmin: null, q: async () => [], env: {} }))
+  const off = await serve(P.createPinRouter({ isAdmin: null, env: withPinata, fetchImpl: fakePinata }))
   try {
     assert.equal((await fetch(off.base)).status, 200)
     const r = await post(off.base, await signedBody(files(1, 1), admin))
@@ -127,7 +125,7 @@ test('router errors: 401 / 403 / 400 / 503 / 429', async () => {
     assert.match((await r.json()).error, /ADMIN_ADDRESSES|COLLECTION_ADDRESS/)
   } finally { await off.close() }
 
-  const lim = await serve(P.createPinRouter({ isAdmin, q: async () => [], env: {} }))
+  const lim = await serve(P.createPinRouter({ isAdmin, env: withPinata, fetchImpl: fakePinata }))
   try {
     const codes = []
     for (let i = 0; i < 32; i++) codes.push((await post(lim.base, 'x')).status)
@@ -143,7 +141,7 @@ test('router (pinata mode): uploads one directory and returns its CID as ipfs://
     seen = { url, auth: init.headers.Authorization, files: entries.filter(([k]) => k === 'file').map(([, f]) => f.name), meta: JSON.parse(entries.find(([k]) => k === 'pinataMetadata')[1]), options: JSON.parse(entries.find(([k]) => k === 'pinataOptions')[1]) }
     return { ok: true, json: async () => ({ IpfsHash: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi' }) }
   }
-  const s = await serve(P.createPinRouter({ isAdmin, q: async () => { throw new Error('db must not be used') }, env: { PINATA_JWT: 'jwt-123' }, fetchImpl }))
+  const s = await serve(P.createPinRouter({ isAdmin, env: { PINATA_JWT: 'jwt-123' }, fetchImpl }))
   try {
     assert.equal((await (await fetch(s.base)).json()).mode, 'pinata')
     const r = await post(s.base, await signedBody(files(25, 12), admin))

@@ -1,5 +1,8 @@
 {
-  "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "npx vite build --outDir dist/client",
-  "outputDirectory": "dist/client"
+  "installCommand": "npm ci --legacy-peer-deps",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/client",
+  "functions": {
+    "api/**/*.js": { "maxDuration": 60 }
+  }
 }

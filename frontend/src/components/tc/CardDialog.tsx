@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { CardFace, RarityBadge } from './CardFace'
-import { http, fmtEth, short, timeAgo, RARITY_ODDS, CHAIN_MODE, type Card } from '@/lib/tc'
+import { http, fmtEth, short, timeAgo, RARITY_ODDS, type Card } from '@/lib/tc'
 import { TCGDEX_BASE } from '@/lib/pokemon/tcgdex'
 import type { ReactNode } from 'react'
 
@@ -10,7 +10,7 @@ type PriceReply = {
   name?: string | null; setName?: string | null; cardNumber?: string | null; gradeLabel?: string | null; url?: string; error?: string
 }
 
-/** Query string for /api/price: v2 priceRef (set_name + item_no …) or the demo-mode legacy `q`. */
+/** Query string for /api/price built from the card's priceRef (set_name + item_no …). */
 function priceQuery(card: Card): string | null {
   const p = card.priceRef
   if (p?.set_name && p.item_no) {
@@ -19,7 +19,6 @@ function priceQuery(card: Card): string | null {
     if (p.card_name) qs.set('card_name', p.card_name)
     return qs.toString()
   }
-  if (p?.q) return CHAIN_MODE ? `cardId=${card.id}&q=${encodeURIComponent(p.q)}&game=${encodeURIComponent(p.game || 'pokemon')}` : `cardId=${card.id}`
   return null
 }
 
@@ -73,7 +72,7 @@ export function CardDialog({ card, open, onOpenChange, actions }: {
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">{c.name} <RarityBadge rarity={c.rarity} /></DialogTitle>
-          <DialogDescription>Token ID #{c.id} · ERC-1155 · uri: api/metadata/{c.id}.json</DialogDescription>
+          <DialogDescription>Token ID #{c.id} · ERC-1155</DialogDescription>
         </DialogHeader>
         <div className="grid gap-5 sm:grid-cols-[200px_1fr]">
           <div className="space-y-3">

@@ -126,4 +126,4 @@ async function lookupFreeText(q, opts) {
   return hit ? toPrice(hit) : { found: false, reason: 'not_found' }
 }
 
-module.exports = { normNumber, setMatches, nameMatches, languageMatches, pickMatch, searchQuery, toPrice, lookup, lookupFreeText, search }
+export { normNumber, setMatches, nameMatches, languageMatches, pickMatch, searchQuery, toPrice, lookup, lookupFreeText, search }

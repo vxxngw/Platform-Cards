@@ -38,7 +38,7 @@ async function boot() {
     if (typeof React.useState !== 'function') throw new Error('dep-stub')
 
     const { createElement } = React
-    const { createRoot, hydrateRoot } = await import('react-dom/client')
+    const { createRoot } = await import('react-dom/client')
     const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query')
     const { default: App } = await import('./App')
     const { default: ErrorBoundary } = await import('./ErrorBoundary')
@@ -58,31 +58,13 @@ async function boot() {
       )
     )
 
-    // Use hydrateRoot only when SSR rendered real app content. The scaffold's
-    // server entry intentionally returns a lightweight placeholder shell so
-    // SSR-incompatible libraries (for example echarts-for-react) cannot crash
-    // deploy-time render. Placeholder markup must be client-rendered, not hydrated.
-    const hasPlaceholder = !!root.querySelector('[data-surf-placeholder]')
-    if (root.childNodes.length > 0 && root.innerHTML !== '<!--ssr-outlet-->' && !hasPlaceholder) {
-      hydrateRoot(root, children)
-    } else {
-      root.innerHTML = ''
-      createRoot(root).render(children)
-    }
+    // The page is client-rendered only (no SSR), so there is never server markup to hydrate.
+    root.innerHTML = ''
+    createRoot(root).render(children)
 
     // React rendered successfully — signal to index.html fallback & reset counter
     ;(window as any).__reactOk = true
     sessionStorage.removeItem(RELOAD_KEY)
-
-    // Notify parent frame when real app content renders (not the placeholder).
-    // DO NOT REMOVE — the hosting app uses this to dismiss the loading overlay.
-    function notifyParentReady() {
-      if (!document.querySelector('[data-surf-placeholder]')) {
-        try { window.parent.postMessage({ type: 'surf-app-ready' }, '*') } catch { /* cross-origin — ignore */ }
-      }
-    }
-    notifyParentReady()
-    new MutationObserver(notifyParentReady).observe(root, { childList: true, subtree: true })
   } catch {
     // React is not ready — show loading banner and schedule reload
     const prev = getReloads()

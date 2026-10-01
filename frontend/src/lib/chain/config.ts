@@ -1,7 +1,5 @@
-// On-chain mode is opt-in. Without VITE_CHAIN_MODE=onchain the app keeps using the off-chain demo backend.
 const env = import.meta.env as Record<string, string | undefined>
 
-export const CHAIN_MODE = env.VITE_CHAIN_MODE === 'onchain'
 export const CHAIN_ID = Number(env.VITE_CHAIN_ID || 11155111) // Sepolia
 export const RPC_URL = env.VITE_RPC_URL || undefined
 // eth_getLogs often has tight range limits (Alchemy free tier: 10 blocks), so logs may use a different endpoint.

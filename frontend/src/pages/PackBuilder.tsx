@@ -7,7 +7,7 @@ import { connectNewWallet } from '@/components/tc/Shell'
 import { PoolPanel } from '@/components/pb/PoolPanel'
 import { PublishPanel, type WalletInfo } from '@/components/pb/PublishPanel'
 import { SourcePanel, type PickMode } from '@/components/pb/SourcePanel'
-import { CHAIN_MODE, useWalletStore } from '@/lib/tc'
+import { useWalletStore } from '@/lib/tc'
 import { useMe, useRefresh } from '@/lib/hooks'
 import { Link } from '@/lib/router'
 import { CHAIN_ID } from '@/lib/chain/config'
@@ -100,9 +100,6 @@ export default function PackBuilder() {
   const refresh = useRefresh()
   useEffect(() => setMounted(true), [])
 
-  if (!CHAIN_MODE) {
-    return <div className="mx-auto max-w-lg rounded-xl border border-border p-8 text-center text-sm text-fg-subtle">Pack Builder chỉ hoạt động ở chế độ on-chain (đặt <code>VITE_CHAIN_MODE=onchain</code> và địa chỉ hợp đồng trong <code>frontend/.env</code>).</div>
-  }
   if (!mounted) return <Skeleton className="h-96 rounded-xl" />
   if (!current) {
     return (

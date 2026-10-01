@@ -1,11 +1,11 @@
 import { api } from '../api'
 import { sha256Hex } from '../tc'
 
-// Must stay identical to pinMessage() in backend/lib/pin.js (both sides have a test with the same literal).
+// Must stay identical to pinMessage() in api/_lib/pin.js (both sides have a test with the same literal).
 export const pinMessage = (sha256: string, timestamp: number) => `Sàn Thẻ Bộ — pin metadata\nsha256: ${sha256}\ntimestamp: ${timestamp}`
 
-export type PinStatus = { mode: 'pinata' | 'server'; authConfigured: boolean }
-export type PinResult = { mode: 'pinata' | 'server'; count: number; baseUri: string; cid?: string }
+export type PinStatus = { mode: 'pinata' | 'unconfigured'; authConfigured: boolean }
+export type PinResult = { mode: 'pinata'; count: number; baseUri: string; cid: string }
 
 export async function pinStatus(): Promise<PinStatus | null> {
   try {
@@ -18,11 +18,8 @@ export async function pinStatus(): Promise<PinStatus | null> {
   }
 }
 
-/** Base URI used when metadata is served by the app itself (no Pinata): https://<app>/api/metadata/ */
-export const serverBaseUri = () => new URL(api('metadata/'), window.location.href).href
-
 /**
- * Sends the metadata folder to /api/pin. The body is text/plain (the platform's JSON parser caps bodies at 100 kB) and is
+ * Sends the metadata folder to /api/pin. The body is text/plain (a metadata folder can exceed the default 100 kB JSON body limit) and is
  * authenticated by a personal_sign over the SHA-256 of the exact `filesJson` string, so only an ADMIN wallet can pin.
  */
 export async function pinMetadata(files: Record<string, unknown>, address: string, sign: (message: string) => Promise<string>): Promise<PinResult> {
@@ -37,6 +34,5 @@ export async function pinMetadata(files: Record<string, unknown>, address: strin
   })
   const j = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(j?.error || `Pin thất bại (${r.status})`)
-  if (j.mode === 'pinata') return { mode: 'pinata', count: j.count, cid: j.cid, baseUri: j.baseUri }
-  return { mode: 'server', count: j.count, baseUri: serverBaseUri() }
+  return { mode: 'pinata', count: j.count, cid: j.cid, baseUri: j.baseUri }
 }

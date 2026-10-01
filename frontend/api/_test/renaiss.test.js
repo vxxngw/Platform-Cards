@@ -1,7 +1,7 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const R = require('../lib/renaiss')
-const F = require('./fixtures')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import * as R from '../_lib/renaiss.js'
+import * as F from './fixtures.js'
 
 test('normNumber strips leading zeros and the "/total" suffix', () => {
   assert.equal(R.normNumber('025'), '25')

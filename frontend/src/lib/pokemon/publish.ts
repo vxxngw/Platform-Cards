@@ -34,7 +34,7 @@ export const loadContext = () => http<BuilderContext>('tc/builder/context')
 export type RunState = {
   firstCardId?: number
   baseUri?: string
-  pinMode?: 'pinata' | 'server'
+  pinMode?: 'pinata'
   cid?: string
   setId?: number
   done: StepId[]

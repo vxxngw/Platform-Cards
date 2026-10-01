@@ -33,10 +33,8 @@ CHECK=1 node scripts/seed-pokemon.js                       # đối chiếu snap
 
 ## Ghi chú
 
-Bản web demo hiện tại chạy **mô phỏng off-chain** cùng logic với các contract này
-(ví demo, VRF mô phỏng với commit–reveal có thể kiểm chứng trong trình duyệt).
-Để chuyển sang on-chain thật, deploy các contract trên và thay lớp API bằng
-wagmi/viem gọi trực tiếp contract.
+Frontend (`../frontend`) đọc và ghi trực tiếp lên 3 hợp đồng này bằng viem; không có lớp mô phỏng off-chain.
+Địa chỉ hợp đồng đặt trong biến `VITE_*` (xem `../frontend/.env.example`).
 
 ## Kết quả đo thực tế
 
@@ -75,7 +73,7 @@ npx hardhat run scripts/local-fulfiller.js --network localhost      # terminal 2
 npm run export-abi                                                  # ghi ABI vào frontend/src/lib/chain/abi.ts
 ```
 
-Điền địa chỉ + `VITE_CHAIN_MODE=onchain` theo `frontend/.env.example` (local: `VITE_CHAIN_ID=31337`,
+Điền địa chỉ theo `frontend/.env.example` (local: `VITE_CHAIN_ID=31337`,
 `VITE_RPC_URL=http://127.0.0.1:8545`). Trên Sepolia: thêm PackSale làm consumer tại vrf.chain.link.
 
 ## Metadata
