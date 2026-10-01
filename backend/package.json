@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/check-env.js node --watch server.js",
+    "start": "node scripts/check-env.js node server.js",
     "test": "node --test \"test/*.test.js\""
   },
   "dependencies": {
