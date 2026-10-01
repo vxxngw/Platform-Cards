@@ -39,7 +39,7 @@ function HeroCards({ cards }: { cards: Card[] }) {
 }
 
 const STEPS = [
-  { n: 'I', icon: Crown, title: 'Claim a Pack', body: 'Buy sealed packs with Sepolia ETH. Each holds five cards from one royal set.' },
+  { n: 'I', icon: Crown, title: 'Buy a Pack', body: 'Buy sealed packs with Sepolia ETH. Each holds five cards from one royal set.' },
   { n: 'II', icon: Wand2, title: 'Break the Seal', body: 'Chainlink VRF draws your cards. The fifth is always Rare or better.' },
   { n: 'III', icon: Gem, title: 'Complete the Set', body: 'Collect all eleven cards, then burn one of each to forge the reward card.' },
   { n: 'IV', icon: Store, title: 'Trade at the Bazaar', body: 'List duplicates or whole sets on the Marketplace. Sellers pay a 2.5% fee.' },
@@ -67,7 +67,7 @@ export default function Home() {
         <div>
           <div className="kicker mb-4 flex items-center gap-3"><span className="h-px w-10 bg-gold/60" />Sepolia Testnet · Chainlink VRF</div>
           <h1 className="text-4xl font-black leading-[1.05] text-ivory sm:text-5xl lg:text-6xl">
-            Claim your <span className="gold-shimmer">legend</span>,<br />one sealed pack at a time.
+            Forge your <span className="gold-shimmer">legend</span>,<br />one sealed pack at a time.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-fg-subtle">
             {BRAND} is a royal exchange for collectible cards: open packs with provable randomness, complete sets to forge reward cards, and trade every card peer to peer — all on chain.
@@ -82,7 +82,7 @@ export default function Home() {
 
       {/* Treasury stats */}
       <Frame strong className="grid grid-cols-2 gap-6 px-6 py-6 md:grid-cols-4 md:px-10">
-        <Stat label="Packs claimed" value={stats.data?.packsSold?.toLocaleString()} />
+        <Stat label="Packs sold" value={stats.data?.packsSold?.toLocaleString()} />
         <Stat label="Market trades" value={stats.data?.sales?.toLocaleString()} />
         <Stat label="Trade volume" value={stats.data ? `${fmtEth(stats.data.volume, 3)} ETH` : undefined} />
         <Stat label="Cards on the market" value={stats.data?.activeListings?.toLocaleString()} />

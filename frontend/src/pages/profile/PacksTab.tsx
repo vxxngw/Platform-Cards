@@ -26,7 +26,7 @@ export default function PacksTab() {
       <section className="space-y-5">
         <SectionHeader kicker="Your Treasury" title="Sealed Packs" sub="Packs you bought but have not opened yet. Break the seal whenever you are ready." />
         {me.isLoading ? <Skeleton className="h-64 rounded-xl" /> : unopened.length === 0 ? (
-          <EmptyState title="No sealed packs" body="Every pack you own has been opened. Claim more in the Gacha hall."
+          <EmptyState title="No sealed packs" body="Every pack you own has been opened. Buy more in the Gacha hall."
             action={<Button asChild><a href="#/gacha">Go to the Gacha</a></Button>} />
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -47,17 +47,17 @@ export default function PacksTab() {
 
       {awaiting.length > 0 && (
         <section className="space-y-5">
-          <SectionHeader kicker="Consulting the Oracle" title="Awaiting Chainlink VRF" sub="Openings whose randomness is on its way, or whose cards are ready to claim." />
+          <SectionHeader kicker="Consulting the Oracle" title="Awaiting Chainlink VRF" sub="Openings whose randomness is on its way, or whose cards are ready to reveal." />
           <div className="grid gap-4 md:grid-cols-2">
             {awaiting.map((r) => (
               <Frame key={String(r.reqId)} corners={false} className="flex items-center gap-4 p-4">
                 <div className="flex shrink-0 gap-1">{[0, 1, 2].map((i) => <div key={i} className="w-8"><CardBack className={r.status === 'ready' ? 'animate-glow' : ''} /></div>)}</div>
                 <div className="min-w-0 flex-1">
                   <div className="font-display font-bold text-ivory">{r.setName ?? `Set #${r.setId}`} · {r.count} pack{r.count > 1 ? 's' : ''}</div>
-                  <div className="text-sm text-fg-muted">{r.status === 'ready' ? 'Cards ready to claim' : 'Waiting for randomness'} · {timeAgo(r.createdAt)}</div>
+                  <div className="text-sm text-fg-muted">{r.status === 'ready' ? 'Cards ready to reveal' : 'Waiting for randomness'} · {timeAgo(r.createdAt)}</div>
                   <div className="font-mono text-[10px] text-fg-muted">request {short(String(r.reqId), 8)}</div>
                 </div>
-                <Button size="sm" variant={r.status === 'ready' ? 'default' : 'outline'} onClick={() => opener.resume(r.reqId)}>{r.status === 'ready' ? 'Claim cards' : 'Watch'}</Button>
+                <Button size="sm" variant={r.status === 'ready' ? 'default' : 'outline'} onClick={() => opener.resume(r.reqId)}>{r.status === 'ready' ? 'Reveal cards' : 'Watch'}</Button>
               </Frame>
             ))}
           </div>

@@ -37,14 +37,14 @@ export function PackTile({ set, owned = 0, onQuickBuy, busy }: { set: CardSet; o
           <div className="h-1.5 overflow-hidden rounded-full bg-night ring-1 ring-gold/20">
             <div className="h-full rounded-full bg-[linear-gradient(90deg,#8f6a22,#f6dc95)]" style={{ width: `${pct}%` }} />
           </div>
-          <div className="mt-1 flex justify-between text-xs text-fg-muted"><span>{sold.toLocaleString()} claimed</span><span>{p.remaining.toLocaleString()} left</span></div>
+          <div className="mt-1 flex justify-between text-xs text-fg-muted"><span>{sold.toLocaleString()} sold</span><span>{p.remaining.toLocaleString()} left</span></div>
         </div>
       )}
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Button asChild variant="outline" size="sm"><a href={`#/gacha/${set.id}`}>View pool</a></Button>
         {onQuickBuy
           ? <Button size="sm" disabled={busy || !p?.onSale || !p?.remaining} onClick={onQuickBuy}>{busy ? 'Summoning…' : 'Buy & open'}</Button>
-          : <Button asChild size="sm"><a href={`#/gacha/${set.id}`}>Claim packs</a></Button>}
+          : <Button asChild size="sm"><a href={`#/gacha/${set.id}`}>Buy packs</a></Button>}
       </div>
     </Frame>
   )

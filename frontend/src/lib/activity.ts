@@ -12,8 +12,8 @@ export function describeEvent(e: ChainEvent, me?: string | null): { kind: EventK
   switch (e.name) {
     case 'PacksPurchased': return { kind: 'pack', text: `${who(a.buyer, me)} bought ${a.qty} pack${a.qty > 1 ? 's' : ''}${a.setName ? ` of ${a.setName}` : ''} for ${eth(a.paid, 4)}` }
     case 'OpenRequested': return { kind: 'open', text: `${who(a.buyer, me)} broke the seal on ${a.qty} pack${a.qty > 1 ? 's' : ''}${a.setName ? ` of ${a.setName}` : ''}` }
-    case 'RandomnessReady': return { kind: 'open', text: `Chainlink VRF answered request ${short(String(a.reqId), 6)} — cards ready to claim` }
-    case 'PackOpened': return { kind: 'pull', text: `${who(a.buyer, me)} claimed ${a.cardIds?.length ?? 0} cards${name ? `, best pull ${name}` : ''}` }
+    case 'RandomnessReady': return { kind: 'open', text: `Chainlink VRF answered request ${short(String(a.reqId), 6)} — cards ready to reveal` }
+    case 'PackOpened': return { kind: 'pull', text: `${who(a.buyer, me)} revealed ${a.cardIds?.length ?? 0} cards${name ? `, best pull ${name}` : ''}` }
     case 'RequestCancelled': return { kind: 'cancel', text: `Request ${short(String(a.reqId), 6)} was withdrawn and its packs returned` }
     case 'Listed': return { kind: 'list', text: `${who(a.seller, me)} listed ${a.isBundle ? `the full set${name ? ` ${name}` : ''}` : `${a.amounts?.[0] ?? 1}× ${name || `card #${a.ids?.[0]}`}`} for ${eth(a.price)}` }
     case 'Sold':
@@ -21,7 +21,7 @@ export function describeEvent(e: ChainEvent, me?: string | null): { kind: EventK
       if (a.side === 'sell') return { kind: 'sale', text: `You sold ${name || `listing #${a.listingId}`} for ${eth(a.price)}` }
       return { kind: 'sale', text: `Listing #${a.listingId}${name ? ` (${name})` : ''} sold to ${who(a.buyer, me)} for ${eth(a.price)}` }
     case 'Cancelled': return { kind: 'cancel', text: `Listing #${a.listingId}${name ? ` (${name})` : ''} was withdrawn` }
-    case 'SetRedeemed': return { kind: 'reward', text: `${who(a.user, me)} completed ${a.setName ?? `set #${a.setId}`} and claimed the reward ${name || `#${a.rewardCardId}`}` }
+    case 'SetRedeemed': return { kind: 'reward', text: `${who(a.user, me)} completed ${a.setName ?? `set #${a.setId}`} and forged the reward ${name || `#${a.rewardCardId}`}` }
     case 'SetCreated': return { kind: 'admin', text: `New set “${a.name}” forged · ${a.cardIds?.length ?? 0} cards + 1 reward` }
     case 'PackConfigured': return { kind: 'admin', text: `Packs of set #${a.setId} ${a.onSale === false ? 'closed' : 'on sale'} · ${eth(a.price, 4)} · ${a.supply} packs` }
     case 'ApprovalForAll': return { kind: 'admin', text: `${who(a.account, me)} ${a.approved ? 'approved' : 'revoked'} the Marketplace` }

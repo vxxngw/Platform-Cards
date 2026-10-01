@@ -89,7 +89,7 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
     if (!r) return
     setBusy(true)
     try {
-      await sendTx(`Claim ${r.count * 5} cards`, 'tc/packs/claim', { reqId: String(r.reqId) })
+      await sendTx(`Mint ${r.count * 5} cards`, 'tc/packs/claim', { reqId: String(r.reqId) })
       setFlipped(new Set())
       await req.refetch()
       refresh()
@@ -98,7 +98,7 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
   async function reclaim() {
     if (!r) return
     setBusy(true)
-    try { await sendTx('Reclaim packs', 'tc/packs/cancel', { reqId: String(r.reqId) }); await req.refetch() } catch { /* toast shown */ } finally { setBusy(false) }
+    try { await sendTx('Return packs', 'tc/packs/cancel', { reqId: String(r.reqId) }); await req.refetch() } catch { /* toast shown */ } finally { setBusy(false) }
   }
 
   const stage: 'choose' | 'loading' | 'pending' | 'ready' | 'fulfilled' | 'cancelled' =
@@ -120,7 +120,7 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
           <DialogDescription className="text-fg-subtle">
             {stage === 'choose' && 'Each pack holds 5 cards; the fifth is always Rare or better. Randomness comes from Chainlink VRF.'}
             {stage === 'pending' && 'Chainlink VRF is drawing your cards. This usually takes 1–3 blocks (about 15–45 seconds).'}
-            {stage === 'ready' && 'The random number has arrived and your cards are already decided. Claim them to mint them into your wallet.'}
+            {stage === 'ready' && 'The random number has arrived and your cards are already decided. Reveal them to mint them into your wallet.'}
             {stage === 'fulfilled' && 'Click a card to turn it over, or reveal them all at once.'}
             {stage === 'cancelled' && 'Chainlink VRF never answered this request, so the packs were returned to you unopened.'}
             {stage === 'loading' && 'Reading your request from the chain…'}
@@ -150,7 +150,7 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
                   <Button size="lg" className="w-full md:w-auto" disabled={busy} onClick={breakSeal}>
                     <Sparkles /> {busy ? 'Breaking the seal…' : `Open ${qty} pack${qty > 1 ? 's' : ''}`}
                   </Button>
-                  <p className="text-xs text-fg-muted">Two signatures: one to request randomness, one to claim your cards once it arrives.</p>
+                  <p className="text-xs text-fg-muted">Two transactions: one to request randomness, one to mint your cards once it arrives.</p>
                 </>
               )}
             </div>
@@ -172,7 +172,7 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
               </div>
             )}
             {r && Date.now() - new Date(r.createdAt).getTime() > STUCK_AFTER_MS && (
-              <Button variant="outline" size="sm" className="mt-4" disabled={busy} onClick={reclaim}>VRF did not answer — reclaim my packs</Button>
+              <Button variant="outline" size="sm" className="mt-4" disabled={busy} onClick={reclaim}>VRF did not answer — return my packs</Button>
             )}
           </div>
         )}
@@ -183,7 +183,7 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
               {[0, 1, 2, 3, 4].map((i) => <div key={i} className="w-12 sm:w-16"><CardBack className="animate-glow" /></div>)}
             </div>
             <Button size="lg" className="mt-6" disabled={busy} onClick={claim}>
-              <Sparkles /> {busy ? 'Minting your cards…' : `Claim ${r.count * 5} cards`}
+              <Sparkles /> {busy ? 'Minting your cards…' : `Reveal ${r.count * 5} cards`}
             </Button>
           </div>
         )}
@@ -211,7 +211,7 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gold/15 pt-4">
               <div className="font-mono text-[11px] text-fg-muted">
                 VRF request {short(String(r.reqId), 8)}
-                {r.fulfillTx && txUrl(r.fulfillTx) && <> · <a href={txUrl(r.fulfillTx)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-gold hover:underline">claim tx <ExternalLink className="size-3" /></a></>}
+                {r.fulfillTx && txUrl(r.fulfillTx) && <> · <a href={txUrl(r.fulfillTx)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-gold hover:underline">mint tx <ExternalLink className="size-3" /></a></>}
               </div>
               <div className="flex flex-wrap gap-2">
                 {available > 0 && <Button variant="outline" size="sm" onClick={() => { setReqId(null); setQty(Math.min(maxQty, qty)); setFlipped(new Set()) }}>Open another ({available} left)</Button>}

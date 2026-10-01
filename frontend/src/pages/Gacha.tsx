@@ -16,7 +16,7 @@ export default function Gacha() {
 
   return (
     <div className="space-y-12">
-      <PageHero kicker="The Gacha Hall" title="Claim Your Fate"
+      <PageHero kicker="The Gacha Hall" title="Choose Your Fate"
         sub="Choose a royal set, buy sealed packs and break the seal on the spot. Every draw is decided by Chainlink VRF and minted straight into your wallet.">
         {sealed > 0 && (
           <Frame className="flex items-center gap-4 px-5 py-4">
