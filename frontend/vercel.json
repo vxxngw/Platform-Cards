@@ -1,0 +1,5 @@
+{
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "npx vite build --outDir dist/client",
+  "outputDirectory": "dist/client"
+}
