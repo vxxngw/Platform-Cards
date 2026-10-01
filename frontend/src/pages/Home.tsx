@@ -3,7 +3,7 @@ import { ArrowRight, Crown, Gem, Store, Wand2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CardBack, CardFace } from '@/components/tc/CardFace'
-import { Crest, Divider, Frame, SectionHeader, Stat } from '@/components/royal/Ornaments'
+import { BrandMark, Divider, Frame, SectionHeader, Stat } from '@/components/royal/Ornaments'
 import { PackTile } from '@/components/royal/PackTile'
 import { OddsNotes, OddsTable } from '@/components/royal/Odds'
 import { Chronicle } from '@/components/royal/Chronicle'
@@ -157,7 +157,7 @@ export default function Home() {
           <OddsTable />
           <Divider />
           <OddsNotes />
-          <div className="flex justify-center pt-2"><Crest className="h-14 w-14 opacity-50" /></div>
+          <div className="flex justify-center pt-2"><BrandMark className="h-14 w-14 opacity-50" /></div>
         </Frame>
         <Chronicle limit={10} />
       </section>

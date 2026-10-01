@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { cardImageSrc } from '@/lib/pokemon/metadata'
 import { RARITY_COLOR, RARITY_NAMES, type Card } from '@/lib/tc'
 import { cn } from '@/lib/utils'
-import { Crest } from '@/components/royal/Ornaments'
+import { BrandMark } from '@/components/royal/Ornaments'
 
 function rng(seed: number) {
   let a = seed >>> 0
@@ -114,7 +114,7 @@ export function CardBack({ className }: { className?: string }) {
       <div className="relative h-full w-full rounded-[7px] ring-1 ring-gold/40" style={{ background: 'repeating-linear-gradient(45deg, rgba(214,171,82,.09) 0 1px, transparent 1px 10px), repeating-linear-gradient(-45deg, rgba(214,171,82,.09) 0 1px, transparent 1px 10px)' }}>
         <div className="absolute inset-[10%] rounded-[50%/38%] border border-gold/35" />
         <div className="absolute inset-0 flex items-center justify-center">
-          <Crest className="h-[42%] w-[42%] drop-shadow-[0_0_10px_rgba(214,171,82,.45)]" />
+          <BrandMark className="h-[42%] w-[42%] drop-shadow-[0_0_10px_rgba(214,171,82,.45)]" />
         </div>
       </div>
     </div>

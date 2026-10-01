@@ -3,7 +3,7 @@
 import { BaseError, ContractFunctionRevertedError, formatEther, getAddress, keccak256, parseEther, parseEventLogs, toBytes, type Hex } from 'viem'
 import type { Card, ChainEvent, CollectionSet, Config, Listing, Me, OpenRequest } from '../tc'
 import { cardCollectionAbi, marketplaceAbi, packSaleAbi } from './abi'
-import { ADDR, ADMIN_ADDRESS, MAX_PACKS_PER_TX, REWARD_MAX_SUPPLY } from './config'
+import { ADDR, ADMIN_ADDRESS, CHAIN_ID, LOGS_RPC_URL, MAX_PACKS_PER_TX, REWARD_MAX_SUPPLY, RPC_URL } from './config'
 import { publicClient, readMany, walletClient } from './client'
 import { getCatalog, invalidateCatalog, knownRawMetadata } from './catalog'
 import { allEvents, blockTimes, byName, iso, sync, type Ev } from './events'
@@ -128,20 +128,43 @@ async function getConfig(): Promise<Config> {
 async function getMe(addr: string | null): Promise<Me> {
   if (!addr) return { wallet: null }
   const a = getAddress(addr)
-  const cat = await getCatalog()
+  // Wallet and role reads come first and on their own: a failing event-log sync must not hide the admin role.
   const [balance, isAdmin, approved, pending] = await Promise.all([
     publicClient.getBalance({ address: a }),
     rd<boolean>(C, cardCollectionAbi, 'hasRole', [ADMIN_ROLE, a]),
     rd<boolean>(C, cardCollectionAbi, 'isApprovedForAll', [a, M]),
     rd<bigint>(M, marketplaceAbi, 'pendingWithdrawals', [a]),
   ])
-  const counts = await readMany<bigint>(cat.sets.map((s) => ({ address: P, abi: packSaleAbi, functionName: 'unopened', args: [a, BigInt(s.id)] })))
-  const unopened = cat.sets.map((s, i) => ({ setId: s.id, name: s.name, count: num(counts[i]) })).filter((u) => u.count > 0)
-  const reqs = requestsOf(a).filter((r) => r.status === 'pending' || r.status === 'ready').map((r) => r.reqId)
+  let unopened: { setId: number; name: string; count: number }[] = []
+  let reqs: string[] = []
+  try {
+    const cat = await getCatalog()
+    const counts = await readMany<bigint>(cat.sets.map((s) => ({ address: P, abi: packSaleAbi, functionName: 'unopened', args: [a, BigInt(s.id)] })))
+    unopened = cat.sets.map((s, i) => ({ setId: s.id, name: s.name, count: num(counts[i]) })).filter((u) => u.count > 0)
+    reqs = requestsOf(a).filter((r) => r.status === 'pending' || r.status === 'ready').map((r) => r.reqId)
+  } catch (e) {
+    console.warn('[me] sets/events unavailable:', explain(e))
+  }
   return {
     wallet: { address: a, label: null, isAdmin, marketApproved: approved, balance: formatEther(balance), pending: formatEther(pending) },
     unopened, pendingRequests: reqs.reverse(),
   }
+}
+
+/** Step-by-step health check of the deployment, shown on /admin when the connected wallet is not recognised. */
+export type Diagnostics = Record<string, unknown>
+async function getDiagnostics(addr: string | null): Promise<Diagnostics> {
+  const out: Diagnostics = {
+    connected: addr, expectedChainId: CHAIN_ID, adminAddressEnv: ADMIN_ADDRESS || null,
+    rpc: RPC_URL ? RPC_URL.replace(/(\/v\d+\/|\/v2\/|key=)[^/?&]+/i, '$1…') : 'viem default public RPC', logsRpc: LOGS_RPC_URL ?? null,
+    collection: C, packSale: P, marketplace: M,
+  }
+  const step = async (k: string, fn: () => Promise<unknown>) => { try { out[k] = await fn() } catch (e) { out[k] = { error: explain(e) } } }
+  await step('rpcChainId', () => publicClient.getChainId())
+  await step('collectionDeployed', async () => ((await publicClient.getCode({ address: C })) ?? '0x') !== '0x')
+  if (addr) await step('hasAdminRole', () => rd<boolean>(C, cardCollectionAbi, 'hasRole', [ADMIN_ROLE, getAddress(addr)]))
+  await step('eventLogs', async () => { await sync(); return `${allEvents().length} events indexed` })
+  return out
 }
 
 async function getCollection(addr: string | null): Promise<CollectionSet[]> {
@@ -417,10 +440,12 @@ export async function chainHttp(path: string, init: Init | undefined, addr: stri
   const q = url.searchParams
   if ((init?.method || 'GET') === 'POST') return post(p, init?.json ?? {}, addr, init?.ctx)
 
+  // These two must work even when the event-log sync fails.
+  if (p === 'tc/me') return getMe(addr)
+  if (p === 'tc/diagnostics') return getDiagnostics(addr)
   await sync()
   let m: RegExpMatchArray | null
   if (p === 'tc/config') return getConfig()
-  if (p === 'tc/me') return getMe(addr)
   if (p === 'tc/sets') return (await getCatalog()).sets
   if ((m = p.match(/^tc\/sets\/(\d+)$/))) {
     const s = (await getCatalog()).sets.find((x) => x.id === Number(m![1]))

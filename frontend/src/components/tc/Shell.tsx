@@ -2,11 +2,16 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { fmtUsd } from '@/lib/tc'
 import { ChainWalletMenu } from './ChainWallet'
 import { connectWallet } from '@/lib/chain/wallet'
-import { ADDR, addrUrl } from '@/lib/chain/config'
+import { ADDR, ADMIN_ADDRESS, addrUrl } from '@/lib/chain/config'
+import { useWalletStore } from '@/lib/tc'
+
+const ZERO = /^0x0{40}$/i
+const MISSING_CONFIG = ([['VITE_COLLECTION_ADDRESS', ADDR.collection], ['VITE_PACKSALE_ADDRESS', ADDR.packSale], ['VITE_MARKETPLACE_ADDRESS', ADDR.market]] as const)
+  .filter(([, a]) => ZERO.test(a)).map(([k]) => k)
 import { useConfig, useEthUsd, useMe } from '@/lib/hooks'
 import { Link } from '@/lib/router'
-import { BRAND, TAGLINE } from '@/lib/brand'
-import { Crest, Divider } from '@/components/royal/Ornaments'
+import { BRAND } from '@/lib/brand'
+import { BrandMark, Divider } from '@/components/royal/Ornaments'
 import { cn } from '@/lib/utils'
 
 /** Opens Privy's login / connect-wallet modal. The wallet store updates once the user finishes in the modal. */
@@ -33,7 +38,9 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
   const cfg = useConfig()
   const ethUsd = useEthUsd()
   const unopened = (me.data?.unopened || []).reduce((s, u) => s + u.count, 0)
-  const isAdmin = !!me.data?.wallet?.isAdmin
+  const { current } = useWalletStore()
+  // also show the link to the configured admin address, so a failed role check can be diagnosed on /admin
+  const isAdmin = !!me.data?.wallet?.isAdmin || (!!current && !!ADMIN_ADDRESS && current.toLowerCase() === ADMIN_ADDRESS)
   const nav = isAdmin ? [...NAV, { to: '/admin', label: 'Admin' }] : NAV
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -43,11 +50,8 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
       <header className="sticky top-0 z-40 border-b border-gold/25 bg-[linear-gradient(180deg,rgba(20,14,34,.96),rgba(13,10,22,.9))] backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 md:gap-8">
           <Link to="/" className="group flex shrink-0 items-center gap-2.5">
-            <Crest className="h-10 w-9 transition group-hover:drop-shadow-[0_0_10px_rgba(214,171,82,.6)]" />
-            <span className="hidden flex-col leading-none sm:flex">
-              <span className="gold-text font-deco text-lg font-bold">{BRAND}</span>
-              <span className="mt-0.5 font-display text-[9px] tracking-[0.3em] text-fg-muted">{TAGLINE.toUpperCase()}</span>
-            </span>
+            <BrandMark className="h-10 w-10 transition group-hover:drop-shadow-[0_0_10px_rgba(214,171,82,.6)]" />
+            <span className="gold-text hidden font-deco text-xl font-bold leading-none sm:inline">{BRAND}</span>
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
             {nav.map((n) => <NavLink key={n.to} to={n.to} label={n.label} active={isActive(path, n.to)} badge={n.to === '/profile' ? unopened : 0} />)}
@@ -63,6 +67,11 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
         <nav className="flex items-center gap-1 overflow-x-auto border-t border-gold/10 px-2 md:hidden">
           {nav.map((n) => <NavLink key={n.to} to={n.to} label={n.label} active={isActive(path, n.to)} badge={n.to === '/profile' ? unopened : 0} />)}
         </nav>
+        {MISSING_CONFIG.length > 0 && (
+          <div className="border-t border-destructive/40 bg-crimson/30 px-4 py-1.5 text-center text-xs text-ivory">
+            Misconfigured deployment: {MISSING_CONFIG.join(', ')} {MISSING_CONFIG.length > 1 ? 'are' : 'is'} not set, so the app cannot read the contracts. Add {MISSING_CONFIG.length > 1 ? 'them' : 'it'} in the hosting environment variables and redeploy.
+          </div>
+        )}
         {cfg.data?.paused && (
           <div className="border-t border-destructive/40 bg-crimson/30 py-1.5 text-center font-display text-xs tracking-wide text-ivory">
             The contracts are paused — card transfers are halted until an admin resumes them.
@@ -78,11 +87,8 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
           <div className="grid gap-8 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
               <div className="flex items-center gap-2.5">
-                <Crest className="h-10 w-9" />
-                <div>
-                  <div className="gold-text font-deco text-lg font-bold">{BRAND}</div>
-                  <div className="font-display text-[9px] tracking-[0.3em] text-fg-muted">{TAGLINE.toUpperCase()}</div>
-                </div>
+                <BrandMark className="h-10 w-10" />
+                <div className="gold-text font-deco text-xl font-bold">{BRAND}</div>
               </div>
               <p className="mt-3 max-w-sm text-sm text-fg-subtle">
                 Open sealed packs drawn by Chainlink VRF, complete royal sets, and trade cards peer to peer — every move settled on chain.

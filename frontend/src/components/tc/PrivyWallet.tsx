@@ -3,6 +3,7 @@ import { PrivyProvider, usePrivy, useWallets } from '@privy-io/react-auth'
 import { getAddress, type EIP1193Provider } from 'viem'
 import { walletStore } from '@/lib/tc'
 import { PRIVY_APP_ID } from '@/lib/chain/config'
+import { BRAND_LOGO } from '@/lib/brand'
 import { chain } from '@/lib/chain/client'
 import { parseChainId, pickWallet, setActiveWallet, setPrivyActions, type ActiveWallet } from '@/lib/chain/providers'
 
@@ -19,6 +20,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         loginMethods: ['wallet', 'email'],
         appearance: {
           theme: 'dark',
+          ...(BRAND_LOGO ? { logo: BRAND_LOGO } : {}),
           accentColor: '#ff2974',
           walletChainType: 'ethereum-only',
           showWalletLoginFirst: true,
