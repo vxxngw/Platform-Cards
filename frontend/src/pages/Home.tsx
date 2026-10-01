@@ -142,7 +142,7 @@ export default function Home() {
           <ul className="space-y-1.5 text-xs text-fg-subtle">
             <li>Lá thứ 5 của mỗi pack rút từ bảng Rare+ → luôn có ít nhất 1 thẻ Rare trở lên.</li>
             <li>Thẻ chạm maxSupply thì lượt rút rơi xuống độ hiếm thấp hơn kế tiếp.</li>
-            <li>Mỗi lần mở có reqId, seed và cam kết seed để bạn tự kiểm chứng kết quả.</li>
+            <li>Số ngẫu nhiên do Chainlink VRF sinh; mỗi lần mở có requestId và link Etherscan để bạn tự kiểm chứng.</li>
           </ul>
         </div>
         <ActivityFeed />

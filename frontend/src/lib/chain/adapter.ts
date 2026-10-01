@@ -1,5 +1,5 @@
-// Implements the same `tc/*` REST surface as backend/routes/tc.js, but straight on the 3 contracts (viem).
-// Pages stay unchanged: tc.ts routes `tc/*` calls here when VITE_CHAIN_MODE=onchain.
+// Implements the `tc/*` REST-style surface straight on the 3 contracts (viem); there is no server behind it.
+// tc.ts routes every `tc/*` call here.
 import { BaseError, ContractFunctionRevertedError, formatEther, getAddress, keccak256, parseEther, parseEventLogs, toBytes, type Hex } from 'viem'
 import type { Card, ChainEvent, CollectionSet, Config, Listing, Me, OpenRequest } from '../tc'
 import { cardCollectionAbi, marketplaceAbi, packSaleAbi } from './abi'

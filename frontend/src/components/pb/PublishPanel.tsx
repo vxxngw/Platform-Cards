@@ -40,8 +40,8 @@ export function PublishPanel({ draft, onChange, wallet, ctx, pin, onPublished }:
       connected: wallet.connected, isAdmin: wallet.isAdmin, rightNetwork: wallet.rightNetwork,
     })
     base.push({
-      id: 'server', ok: !!pin?.authConfigured, label: 'Server /api/pin sẵn sàng (đã cấu hình xác thực Admin)',
-      hint: pin === undefined ? 'đang kiểm tra…' : pin === null ? '/api/pin không truy cập được' : 'đặt ADMIN_ADDRESSES hoặc COLLECTION_ADDRESS cho backend',
+      id: 'server', ok: !!pin?.authConfigured && pin.mode === 'pinata', label: '/api/pin sẵn sàng (đã cấu hình PINATA_JWT và xác thực Admin)',
+      hint: pin === undefined ? 'đang kiểm tra…' : pin === null ? '/api/pin không truy cập được' : !pin.authConfigured ? 'đặt COLLECTION_ADDRESS (hoặc ADMIN_ADDRESSES) trong Environment Variables của Vercel' : 'đặt PINATA_JWT trong Environment Variables của Vercel',
     })
     if (missing.length) base.push({ id: 'ack', ok: ack, label: `Chấp nhận dùng metadata tạm cho ${missing.length} thẻ cũ chưa tải được`, hint: `id ${missing.slice(0, 8).join(', ')}${missing.length > 8 ? '…' : ''}` })
     return base
@@ -139,7 +139,7 @@ export function PublishPanel({ draft, onChange, wallet, ctx, pin, onPublished }:
         <p className={`rounded px-2 py-1.5 text-[11px] ${pinMode === 'pinata' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'}`}>
           {pinMode === 'pinata'
             ? 'Metadata sẽ được pin lên IPFS qua Pinata (JWT giữ ở server).'
-            : 'Server chưa có PINATA_JWT: metadata sẽ được lưu trong cơ sở dữ liệu của ứng dụng và base URI trỏ về /api/metadata/ của trang này. Chỉ dùng cho demo; hãy đặt PINATA_JWT để lên IPFS.'}
+            : 'Server chưa có PINATA_JWT nên chưa thể pin metadata lên IPFS. Đặt PINATA_JWT trong Environment Variables của Vercel rồi deploy lại.'}
         </p>
       )}
 

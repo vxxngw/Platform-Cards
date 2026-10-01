@@ -31,7 +31,7 @@
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
 
-  /* Surf Semantic — Background */
+  /* Semantic — Background */
   --color-bg-subtle: var(--bg-subtle);
   --color-bg-subtle-hover: var(--bg-subtle-hover);
   --color-bg-base: var(--bg-base);
@@ -40,25 +40,25 @@
   --color-bg-chat: var(--bg-chat);
   --color-bg-chat-nav: var(--bg-chat-nav);
 
-  /* Surf Semantic — Foreground */
+  /* Semantic — Foreground */
   --color-fg-base: var(--fg-base);
   --color-fg-subtle: var(--fg-subtle);
   --color-fg-muted: var(--fg-muted);
   --color-fg-disabled: var(--fg-disabled);
 
-  /* Surf Semantic — Border */
+  /* Semantic — Border */
   --color-border-base: var(--border-base);
   --color-border-strong: var(--border-strong);
   --color-border-contrast: var(--border-contrast);
   --color-border-focus: var(--border-focus);
 
-  /* Surf Brand */
+  /* Brand */
   --color-brand-100: var(--brand-100);
   --color-brand-60: var(--brand-60);
   --color-brand-30: var(--brand-30);
   --color-brand-10: var(--brand-10);
 
-  /* Surf Visualizer (Chart/Status) */
+  /* Visualizer (Chart/Status) */
   --color-visualizer-rose-pop: var(--visualizer-rose-pop);
   --color-visualizer-indigo-breeze: var(--visualizer-indigo-breeze);
   --color-visualizer-emerald-mint: var(--visualizer-emerald-mint);
@@ -68,7 +68,7 @@
   --color-visualizer-aqua-glow: var(--visualizer-aqua-glow);
   --color-visualizer-sunbeam-yellow: var(--visualizer-sunbeam-yellow);
 
-  /* Surf Tags */
+  /* Tags */
   --color-tag-blue-10: var(--tag-blue-10);
   --color-tag-blue-100: var(--tag-blue-100);
   --color-tag-yellow-10: var(--tag-yellow-10);
@@ -98,7 +98,7 @@
 
 /* ===== Light Mode (default) ===== */
 :root {
-  /* shadcn semantic tokens (Surf Light) */
+  /* shadcn semantic tokens (Light) */
   --background: hsl(0 0% 100%);
   --foreground: hsl(0 0% 13%);
   --card: hsl(0 0% 100%);
@@ -120,7 +120,7 @@
   --ring: #212121;
   --radius: 0.5rem;
 
-  /* Surf Neutral Palette */
+  /* Neutral Palette */
   --neutral-0: #ffffff;
   --neutral-50: #fafafa;
   --neutral-100: #f5f4f4;
@@ -135,19 +135,19 @@
   --neutral-950: #1b1b1b;
   --neutral-1000: #101010;
 
-  /* Surf Brand */
+  /* Brand */
   --brand-100: #ff2882;
   --brand-60: rgba(255, 40, 130, 0.6);
   --brand-30: rgba(255, 40, 130, 0.3);
   --brand-10: rgba(255, 40, 130, 0.1);
 
-  /* Surf Brand Extended */
+  /* Brand Extended */
   --brand-seafoam: #b6cfd0;
   --brand-dusty-teal: #6ba4b8;
   --brand-black-aqua: #002f38;
   --brand-deep-teal-blue: #07272d;
 
-  /* Surf Visualizer (Chart) Colors */
+  /* Visualizer (Chart) Colors */
   --visualizer-rose-pop: #fd4b96;
   --visualizer-indigo-breeze: #6366f1;
   --visualizer-emerald-mint: #10b981;
@@ -157,7 +157,7 @@
   --visualizer-aqua-glow: #06b6d4;
   --visualizer-sunbeam-yellow: #facc15;
 
-  /* Surf Semantic Tokens (Light) */
+  /* Semantic Tokens (Light) */
   --bg-subtle: rgba(42, 42, 42, 0.04);
   --bg-subtle-hover: rgba(42, 42, 42, 0.06);
   --bg-base: rgba(255, 255, 255, 0.88);
@@ -188,7 +188,7 @@
   --tag-orange-10: rgba(184, 160, 142, 0.1);
   --tag-orange-100: #b8a08e;
 
-  /* Surf Gradient Definitions (raw, mode-independent) */
+  /* Gradient Definitions (raw, mode-independent) */
   --gradient-max-dark: linear-gradient(213deg, #8c421d 2%, #fbe67b 31%, #fcfbe7 53%, #f7d14e 77%, #d4a041 100%);
   --gradient-max-light: linear-gradient(125deg, #8c421d 22%, #d2af00 47%, #cd9124 67%, #d4a041 88%);
   --gradient-pro-dark: linear-gradient(213deg, #7a96ac 1%, #c5d6e2 27%, #eaeff3 47%, #c5d6e2 65%, #a3bccf 89%);
@@ -205,7 +205,7 @@
   --gradient-g4: linear-gradient(232deg, #fedc2a 4%, #dd5789 56%, #7a2c9e 104%);
   --gradient-g5: linear-gradient(32deg, #fc3bb2 6%, #f7906e 79%);
 
-  /* Surf Gradients (semantic, auto-switch by mode) */
+  /* Gradients (semantic, auto-switch by mode) */
   --gradient-max: var(--gradient-max-light);
   --gradient-pro: var(--gradient-pro-light);
   --gradient-plus: var(--gradient-plus-light);
@@ -246,7 +246,7 @@
 
 /* ===== Dark Mode ===== */
 .dark {
-  /* shadcn semantic tokens (Surf Dark) */
+  /* shadcn semantic tokens (Dark) */
   --background: hsl(0 0% 9%);
   --foreground: hsl(0 0% 91%);
   --card: hsl(0 0% 9%);
@@ -267,13 +267,13 @@
   --input: hsl(0 0% 20%);
   --ring: #e7e7e7;
 
-  /* Surf Gradients (Dark) */
+  /* Gradients (Dark) */
   --gradient-max: var(--gradient-max-dark);
   --gradient-pro: var(--gradient-pro-dark);
   --gradient-plus: var(--gradient-plus-dark);
   --gradient-upgrade: var(--gradient-upgrade-dark);
 
-  /* Surf Semantic Tokens (Dark) */
+  /* Semantic Tokens (Dark) */
   --bg-subtle: rgba(255, 255, 255, 0.04);
   --bg-subtle-hover: rgba(255, 255, 255, 0.12);
   --bg-base: rgba(42, 42, 42, 0.8);

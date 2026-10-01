@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { CardBack, CardFace } from '@/components/tc/CardFace'
 import { connectNewWallet } from '@/components/tc/Shell'
-import { http, sendTx, short, timeAgo, verifyDraw, sha256Hex, RARITY_COLOR, RARITY_NAMES, useWalletStore, CHAIN_MODE, type CardSet, type OpenRequest, type Card } from '@/lib/tc'
+import { http, sendTx, short, timeAgo, RARITY_COLOR, RARITY_NAMES, useWalletStore, type CardSet, type OpenRequest, type Card } from '@/lib/tc'
 import { txUrl } from '@/lib/chain/config'
 import { useMe, useRefresh, useSets } from '@/lib/hooks'
 import { Link } from '@/lib/router'
@@ -41,53 +41,6 @@ function ChainVerify({ req }: { req: OpenRequest }) {
   )
 }
 
-function Verify({ req, set }: { req: OpenRequest; set?: CardSet }) {
-  const [res, setRes] = useState<null | { commitOk: boolean; match: number; total: number; rows: Awaited<ReturnType<typeof verifyDraw>> }>(null)
-  const [busy, setBusy] = useState(false)
-  async function run() {
-    if (!req.seed || !set) return
-    setBusy(true)
-    const commitOk = (await sha256Hex(req.seed)) === req.seedCommit
-    const rows = await verifyDraw(req.seed, set.cards, req.count)
-    const match = rows.filter((r, i) => r.cardId === req.cards[i]?.id).length
-    setRes({ commitOk, match, total: rows.length, rows })
-    setBusy(false)
-  }
-  return (
-    <div className="rounded-xl border border-border p-4 text-xs">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-semibold">Kiểm chứng kết quả</span>
-        <Button size="sm" variant="outline" onClick={run} disabled={busy || !req.seed}>{busy ? 'Đang tính…' : 'Tự kiểm chứng trên trình duyệt'}</Button>
-      </div>
-      <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1 font-mono">
-        <dt className="text-fg-muted">reqId</dt><dd>#{req.reqId} · {short(req.reqHash, 12)}</dd>
-        <dt className="text-fg-muted">tx openPacks</dt><dd className="truncate">{req.txHash}</dd>
-        <dt className="text-fg-muted">tx fulfill</dt><dd className="truncate">{req.fulfillTx || '—'}</dd>
-        <dt className="text-fg-muted">seed commit</dt><dd className="truncate">{req.seedCommit}</dd>
-        <dt className="text-fg-muted">random word</dt><dd className="truncate">{req.seed || 'chưa công bố'}</dd>
-      </dl>
-      <p className="mt-2 text-fg-muted">
-        Cam kết seed được công bố ngay khi gửi yêu cầu, trước khi có kết quả. Mỗi lá: r = sha256(seed:k) mod 10000, so ngưỡng 6000/8800/9800; lá thứ 5 dùng 6000 + r mod 4000; chọn thẻ bằng sha256(seed:k:card) mod số thẻ cùng độ hiếm.
-      </p>
-      {res && (
-        <div className="mt-3 space-y-2">
-          <div className={res.commitOk && res.match === res.total ? 'text-emerald-400' : 'text-amber-400'}>
-            sha256(seed) {res.commitOk ? 'khớp' : 'KHÔNG khớp'} cam kết · {res.match}/{res.total} lá khớp kết quả
-            {res.match < res.total && res.commitOk ? ' (lá lệch do thẻ chạm maxSupply → rơi xuống độ hiếm thấp hơn)' : ''}
-          </div>
-          <div className="grid grid-cols-5 gap-1">
-            {res.rows.map((r) => (
-              <div key={r.k} className="rounded bg-bg-subtle px-1.5 py-1 font-mono">
-                <span className="text-fg-muted">#{r.k} </span>{r.roll} <span style={{ color: RARITY_COLOR[r.rarity] }}>{RARITY_NAMES[r.rarity][0]}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function OpenPacks() {
   const { current } = useWalletStore()
   const me = useMe()
@@ -108,7 +61,7 @@ export default function OpenPacks() {
     queryKey: ['req', active],
     queryFn: () => http<OpenRequest>(`tc/packs/requests/${active}`),
     enabled: active != null,
-    refetchInterval: (q) => (q.state.data && q.state.data.status !== 'pending' && q.state.data.status !== 'fulfilling' ? false : CHAIN_MODE ? 4000 : 1200),
+    refetchInterval: (q) => (q.state.data && q.state.data.status !== 'pending' && q.state.data.status !== 'fulfilling' ? false : 4000),
   })
   const history = useQuery({ queryKey: ['reqs', current], queryFn: () => http<OpenRequest[]>('tc/packs/requests'), enabled: !!current })
 
@@ -140,7 +93,7 @@ export default function OpenPacks() {
 
   const unopened = me.data?.unopened || []
   const waiting = r && (r.status === 'pending' || r.status === 'fulfilling')
-  const readyToClaim = CHAIN_MODE && r?.status === 'ready'
+  const readyToClaim = r?.status === 'ready'
   const done = r?.status === 'fulfilled'
   const rarest = done ? Math.max(...r.cards.map((c) => c.rarity)) : -1
 
@@ -184,9 +137,9 @@ export default function OpenPacks() {
           </div>
           <div className="font-semibold">Đang mở pack… chờ random từ VRF</div>
           <div className="mt-1 font-mono text-xs text-fg-muted">
-            {CHAIN_MODE ? `VRF requestId ${short(String(r.reqId), 8)} · thường về sau 1–3 block` : `reqId #${r.reqId} · seed commit ${short(r.seedCommit, 10)}`}
+            {`VRF requestId ${short(String(r.reqId), 8)} · thường về sau 1–3 block`}
           </div>
-          {CHAIN_MODE && Date.now() - new Date(r.createdAt).getTime() > 3600_000 && (
+          {Date.now() - new Date(r.createdAt).getTime() > 3600_000 && (
             <Button size="sm" variant="outline" className="mt-3" onClick={async () => {
               try { await sendTx('cancelStuckRequest', 'tc/packs/cancel', { reqId: String(r.reqId) }); refresh() } catch { /* toast */ }
             }}>VRF không phản hồi — hoàn pack</Button>
@@ -194,7 +147,7 @@ export default function OpenPacks() {
         </div>
       )}
 
-      {CHAIN_MODE && r?.status === 'ready' && (
+      {r?.status === 'ready' && (
         <div className="rounded-xl border border-primary/40 bg-primary/5 p-8 text-center">
           <div className="mx-auto mb-4 flex w-fit gap-2">
             {[0, 1, 2, 3, 4].map((i) => <div key={i} className="w-12"><CardBack /></div>)}
@@ -242,7 +195,7 @@ export default function OpenPacks() {
               </div>
             </div>
           ))}
-          {CHAIN_MODE ? <ChainVerify req={r} /> : <Verify req={r} set={set} />}
+          <ChainVerify req={r} />
         </section>
       )}
 

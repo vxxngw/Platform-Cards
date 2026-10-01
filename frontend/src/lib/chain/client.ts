@@ -1,6 +1,7 @@
 import { createPublicClient, createWalletClient, custom, http, type EIP1193Provider, type Hex } from 'viem'
 import { hardhat, sepolia } from 'viem/chains'
 import { CHAIN_ID, LOGS_RPC_URL, RPC_URL } from './config'
+import { activeWallet } from './providers'
 
 export const chain = CHAIN_ID === 31337 ? hardhat : sepolia
 
@@ -8,14 +9,14 @@ export const publicClient = createPublicClient({ chain, transport: http(RPC_URL)
 /** Used only for eth_getLogs (see LOGS_RPC_URL). */
 export const logsClient = createPublicClient({ chain, transport: http(LOGS_RPC_URL) })
 
+/** EIP-1193 provider of the wallet connected through Privy, or null. */
 export function injected(): EIP1193Provider | null {
-  if (typeof window === 'undefined') return null
-  return (window as unknown as { ethereum?: EIP1193Provider }).ethereum ?? null
+  return activeWallet()?.provider ?? null
 }
 
 export function walletClient() {
   const eth = injected()
-  if (!eth) throw new Error('Chưa cài MetaMask (hoặc ví EIP-1193 khác) trên trình duyệt này.')
+  if (!eth) throw new Error('Chưa kết nối ví. Bấm “Kết nối ví” để đăng nhập.')
   return createWalletClient({ chain, transport: custom(eth) })
 }
 
