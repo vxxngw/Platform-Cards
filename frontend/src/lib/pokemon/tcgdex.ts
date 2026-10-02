@@ -1,7 +1,7 @@
 // Thin TCGdex v2 client (https://tcgdex.dev). Free, no key, and it sends `Access-Control-Allow-Origin: *`,
 // so the Pack Builder calls it straight from the browser (no /api/tcgdex proxy needed).
 import { mapLimit, sleep } from './async'
-import type { TcgdexCard, TcgdexSet, TcgdexSetBrief } from './types'
+import type { TcgdexCard, TcgdexCardBrief, TcgdexSet, TcgdexSetBrief } from './types'
 
 export const TCGDEX_BASE = 'https://api.tcgdex.net/v2'
 
@@ -44,6 +44,25 @@ function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
 export const listSets = (lang: string) => cached(`sets:${lang}`, () => getJson<TcgdexSetBrief[]>(`${TCGDEX_BASE}/${lang}/sets`))
 export const getSet = (lang: string, id: string) => cached(`set:${lang}:${id}`, () => getJson<TcgdexSet>(`${TCGDEX_BASE}/${lang}/sets/${encodeURIComponent(id)}`))
 export const getCard = (lang: string, id: string) => cached(`card:${lang}:${id}`, () => getJson<TcgdexCard>(`${TCGDEX_BASE}/${lang}/cards/${encodeURIComponent(id)}`))
+/**
+ * Printings of a card name that do have an image. Reprint sets (a Classic Collection, or a set announced before
+ * release) often have no images on TCGdex yet but reuse the artwork of an earlier printing, so the admin can borrow it.
+ * `exact` matches the whole name; otherwise TCGdex matches names that contain the text.
+ */
+export async function findPrintings(lang: string, name: string, exact = true): Promise<TcgdexCardBrief[]> {
+  const q = name.trim()
+  if (!q) return []
+  const filter = exact ? `eq:${q}` : q
+  const list = await cached(`print:${lang}:${filter}`, () => getJson<TcgdexCardBrief[]>(`${TCGDEX_BASE}/${lang}/cards?name=${encodeURIComponent(filter)}`))
+  return list.filter((c) => !!c.image)
+}
+
+/** The first other printing with the exact same name (outside `excludeSetId`), or null. The admin should still check the picture. */
+export async function suggestPrinting(lang: string, name: string, excludeSetId?: string): Promise<TcgdexCardBrief | null> {
+  const list = await findPrintings(lang, name, true)
+  return list.find((c) => !excludeSetId || !c.id.startsWith(`${excludeSetId}-`)) ?? null
+}
+
 export const listRarities = (lang: string) => cached(`rarities:${lang}`, () => getJson<string[]>(`${TCGDEX_BASE}/${lang}/rarities`))
 
 /**

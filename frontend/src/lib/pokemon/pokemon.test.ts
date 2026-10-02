@@ -64,6 +64,7 @@ describe('imageUrl', () => {
   })
   it('passes full image URLs and nullish values through', () => {
     expect(imageUrl('https://example.com/a.png')).toBe('https://example.com/a.png')
+    expect(imageUrl('https://images.example.com/card?id=7')).toBe('https://images.example.com/card?id=7')
     expect(imageUrl(null)).toBeNull()
     expect(imageUrl(undefined)).toBeNull()
   })
@@ -129,6 +130,22 @@ describe('buildMetadataFolder', () => {
   it('orderPool sorts by tier then numeric card number', () => {
     const shuffled = [pool[10], pool[3], pool[8], pool[0], pool[6]]
     expect(orderPool(shuffled).map((c) => c.localId)).toEqual(['1', '4', '7', '9', '11'])
+  })
+})
+
+describe('buildImageRepairFolder', () => {
+  const existing = { 1: { name: 'A', attributes: [] }, 2: { name: 'B', attributes: [], image: 'https://x/b.png' } }
+  it('copies every token and adds the borrowed image to the fixed ones', async () => {
+    const { buildImageRepairFolder } = await import('./metadata')
+    const files = buildImageRepairFolder({ nextCardId: 3, existing, images: { 1: { image: 'https://assets.tcgdex.net/en/base/base1/4', from: 'base1-4' } } })
+    expect(Object.keys(files)).toEqual(['1.json', '2.json'])
+    expect(files['1.json']).toEqual({ name: 'A', attributes: [], image: 'https://assets.tcgdex.net/en/base/base1/4/high.webp', imageFrom: 'base1-4' })
+    expect(files['2.json']).toBe(existing[2])
+  })
+  it('refuses when a token is unknown or does not exist', async () => {
+    const { buildImageRepairFolder } = await import('./metadata')
+    expect(() => buildImageRepairFolder({ nextCardId: 4, existing, images: {} })).toThrow(/card #3/)
+    expect(() => buildImageRepairFolder({ nextCardId: 3, existing, images: { 9: { image: 'https://x/y.png', from: 'url' } } })).toThrow(/#9/)
   })
 })
 

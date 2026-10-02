@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { connectNewWallet } from '@/components/tc/Shell'
 import { PoolPanel } from '@/components/pb/PoolPanel'
 import { PublishPanel, type WalletInfo } from '@/components/pb/PublishPanel'
+import { RepairPanel } from '@/components/pb/RepairPanel'
 import { SourcePanel, type PickMode } from '@/components/pb/SourcePanel'
 import { useWalletStore } from '@/lib/tc'
 import { useMe, useRefresh } from '@/lib/hooks'
@@ -69,6 +70,7 @@ function Builder() {
           Pick 11 Pokémon TCG cards from TCGdex in a 5/3/2/1 mix (Common/Rare/Epic/Legendary) plus 1 reward card, then publish the set and its packs in minutes. Names, numbers, images and rarities fill in automatically; on-chain tiers are mapped for you.
         </p>
       </div>
+      <RepairPanel wallet={wallet} pin={pin.isLoading ? undefined : pin.data ?? null} />
       <div className="grid gap-5 xl:grid-cols-[1.15fr_1fr]">
         <SourcePanel
           lang={draft.lang} setLang={(lang) => patch({ lang })} setId={draft.setId} setSetId={(setId) => patch({ setId })}
@@ -77,7 +79,8 @@ function Builder() {
         <div className="space-y-5">
           <PoolPanel
             pool={draft.pool} reward={draft.reward} lang={draft.lang}
-            onChangeCard={(key, p) => patch({ pool: draft.pool.map((c) => (c.key === key ? { ...c, ...p } : c)) })}
+            onChangeCard={(key, p) => setDraft((d) => ({ ...d, pool: d.pool.map((c) => (c.key === key ? { ...c, ...p } : c)) }))}
+            onChangeReward={(p) => setDraft((d) => ({ ...d, reward: d.reward ? { ...d.reward, ...p } : null }))}
             onRemove={(key) => patch({ pool: draft.pool.filter((c) => c.key !== key) })}
             onClearReward={() => patch({ reward: null })}
             onAddCustom={onAddCustom}

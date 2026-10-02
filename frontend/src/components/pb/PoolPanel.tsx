@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Plus, Star, X } from 'lucide-react'
+import { ImagePlus, Loader2, Plus, Star, Wand2, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RARITY_COLOR } from '@/lib/tc'
@@ -7,18 +8,61 @@ import { DEFAULT_MAX_SUPPLY, POOL_SIZE, type Tier } from '@/lib/pokemon/tiers'
 import { tierCounts } from '@/lib/pokemon/validate'
 import type { PoolCard } from '@/lib/pokemon/types'
 import { TIER_NAMES } from '@/lib/pokemon/tiers'
+import { suggestPrinting } from '@/lib/pokemon/tcgdex'
+import { ImagePicker } from './ImagePicker'
 import { Thumb, TierSelect } from './parts'
 
-export function PoolPanel({ pool, reward, lang, onChangeCard, onRemove, onClearReward, onAddCustom }: {
+/** Thumbnail that opens the image picker; cards without a picture get a gold hint. */
+function ImageButton({ card, onPick }: { card: PoolCard; onPick: (image: string, from: string) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button className="group relative w-[34px] shrink-0" onClick={() => setOpen(true)} title={card.image ? 'Change image' : 'No image on TCGdex — pick one'}>
+        <Thumb image={card.image} alt={card.name} className="w-[34px]" />
+        <span className={`absolute inset-0 flex items-center justify-center rounded bg-night/60 text-gold transition ${card.image ? 'opacity-0 group-hover:opacity-100' : ''}`}>
+          <ImagePlus className="size-4" />
+        </span>
+      </button>
+      <ImagePicker open={open} onOpenChange={setOpen} lang={card.lang || 'en'} name={card.name} excludeSetId={card.setId || undefined} onPick={onPick} />
+    </>
+  )
+}
+
+export function PoolPanel({ pool, reward, lang, onChangeCard, onChangeReward, onRemove, onClearReward, onAddCustom }: {
   pool: PoolCard[]
   reward: PoolCard | null
   lang: string
   onChangeCard: (key: string, patch: Partial<PoolCard>) => void
+  onChangeReward: (patch: Partial<PoolCard>) => void
   onRemove: (key: string) => void
   onClearReward: () => void
   onAddCustom: (card: PoolCard, as: 'pool' | 'reward') => void
 }) {
   const counts = tierCounts(pool)
+  const noImage = [...pool, ...(reward ? [reward] : [])].filter((c) => !c.image && !c.custom)
+  const [filling, setFilling] = useState(false)
+
+  // Reprint sets often have no pictures on TCGdex yet: borrow the first other printing with the same name.
+  async function fillMissing() {
+    setFilling(true)
+    let found = 0
+    try {
+      for (const c of noImage) {
+        const hit = await suggestPrinting(c.lang || lang, c.name, c.setId || undefined).catch(() => null)
+        if (!hit?.image) continue
+        found++
+        const patch = { image: hit.image, imageFrom: hit.id }
+        if (reward && c.key === reward.key) onChangeReward(patch)
+        else onChangeCard(c.key, patch)
+      }
+      const left = noImage.length - found
+      if (found) toast.success(`Found images for ${found} card(s)`, { description: `Borrowed from earlier printings — check each picture.${left ? ` ${left} still need one: click its thumbnail.` : ''}` })
+      else toast.error('No other printing with an image was found', { description: 'Click a thumbnail to search by another name or paste an image URL.' })
+    } finally {
+      setFilling(false)
+    }
+  }
+
   return (
     <div className="space-y-3 rounded-xl border border-border p-4">
       <div className="flex items-baseline justify-between gap-2">
@@ -29,17 +73,24 @@ export function PoolPanel({ pool, reward, lang, onChangeCard, onRemove, onClearR
           ))}
         </div>
       </div>
-      <p className="text-xs text-fg-muted">On-chain tiers are filled in from the rarity mapping table and can be changed. Cards whose rarity is not in the table must be assigned by hand.</p>
+      <p className="text-xs text-fg-muted">On-chain tiers are filled in from the rarity mapping table and can be changed. Cards whose rarity is not in the table must be assigned by hand. Click a thumbnail to change a card's image.</p>
+      {noImage.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold/40 bg-gold/5 px-3 py-2 text-xs text-fg-subtle">
+          <span>{noImage.length} card(s) have no image on TCGdex (common for sets not released yet). Their artwork usually exists on an earlier printing.</span>
+          <Button size="sm" variant="outline" disabled={filling} onClick={fillMissing}>{filling ? <Loader2 className="animate-spin" /> : <Wand2 />}Find images</Button>
+        </div>
+      )}
 
       <div className="divide-y divide-border rounded-lg border border-border">
         {pool.length === 0 && <div className="px-3 py-6 text-center text-sm text-fg-muted">No card picked yet. Click a card on the left.</div>}
         {pool.map((c) => (
           <div key={c.key} className="grid grid-cols-[34px_1fr_auto] items-center gap-2 px-2 py-1.5">
-            <Thumb image={c.image} alt={c.name} className="w-[34px]" />
+            <ImageButton card={c} onPick={(image, from) => onChangeCard(c.key, { image, imageFrom: from })} />
             <div className="min-w-0">
               <div className="truncate text-sm font-medium">{c.name} <span className="font-mono text-[11px] text-fg-muted">#{c.localId}</span></div>
               <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-fg-muted">
                 <span>{c.officialRarity ?? 'No rarity'}</span>
+                {c.imageFrom && <span className="rounded bg-gold/15 px-1 text-gold" title="Image borrowed from another printing">art: {c.imageFrom}</span>}
                 {c.tierSource === 'inferred' && <span className="rounded bg-amber-500/15 px-1 text-amber-300" title="Tier inferred outside the spec's mapping table">suggested</span>}
                 {c.custom && <span className="rounded bg-bg-subtle px-1">manual</span>}
               </div>
@@ -58,10 +109,10 @@ export function PoolPanel({ pool, reward, lang, onChangeCard, onRemove, onClearR
         <div className="mb-1 flex items-center gap-1.5 text-sm font-semibold"><Star className="size-4 text-amber-400" />Reward card <span className="text-xs font-normal text-fg-muted">(not in the draw pool; earned only by redeeming a full set)</span></div>
         {reward ? (
           <div className="flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-400/5 px-2 py-1.5">
-            <Thumb image={reward.image} alt={reward.name} className="w-[34px]" />
+            <ImageButton card={reward} onPick={(image, from) => onChangeReward({ image, imageFrom: from })} />
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{reward.name} <span className="font-mono text-[11px] text-fg-muted">#{reward.localId}</span></div>
-              <div className="text-[11px] text-fg-muted">{reward.officialRarity ?? 'No rarity'} · {reward.setName}</div>
+              <div className="text-[11px] text-fg-muted">{reward.officialRarity ?? 'No rarity'} · {reward.setName}{reward.imageFrom ? ` · art: ${reward.imageFrom}` : ''}</div>
             </div>
             <button className="rounded p-1 text-fg-muted hover:bg-bg-subtle hover:text-destructive" onClick={onClearReward} aria-label="Remove reward card"><X className="size-4" /></button>
           </div>
