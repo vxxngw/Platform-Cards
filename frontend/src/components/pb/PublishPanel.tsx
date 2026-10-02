@@ -89,7 +89,7 @@ export function PublishPanel({ draft, onChange, wallet, ctx, pin, onPublished }:
       <div className="font-semibold">3. Set and pack settings</div>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="space-y-1 text-xs text-fg-muted sm:col-span-2">On-chain set name
-          <Input className="h-9 text-sm text-fg-base" value={draft.setName} onChange={(e) => onChange({ setName: e.target.value })} placeholder="VD: Pokémon 151" />
+          <Input className="h-9 text-sm text-fg-base" value={draft.setName} onChange={(e) => onChange({ setName: e.target.value })} placeholder="e.g. Pokémon 151" />
         </label>
         <label className="space-y-1 text-xs text-fg-muted">Price per pack (ETH)
           <Input className="h-9 text-sm text-fg-base" inputMode="decimal" value={draft.priceEth} onChange={(e) => onChange({ priceEth: e.target.value.replace(',', '.') })} />
