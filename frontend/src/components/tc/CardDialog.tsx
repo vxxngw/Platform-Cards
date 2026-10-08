@@ -5,6 +5,9 @@ import { http, fmtEth, short, timeAgo, RARITY_ODDS, CHAIN_MODE, type Card } from
 import { TCGDEX_BASE } from '@/lib/pokemon/tcgdex'
 import type { ReactNode } from 'react'
 
+/** ipfs://bafybeihwddq…xmyoeo4/62.json — long CIDs are shortened in the middle for display. */
+const shortUri = (u?: string) => (u ? u.replace(/(ipfs:\/\/[A-Za-z0-9]{8})[A-Za-z0-9]+([A-Za-z0-9]{6}\/)/, '$1…$2') : null)
+
 type PriceReply = {
   found: boolean; reason?: string; best_estimate?: number; currency?: string; confidence_tier?: string | null; freshness_days?: number | null
   name?: string | null; setName?: string | null; cardNumber?: string | null; gradeLabel?: string | null; url?: string; error?: string
@@ -73,7 +76,7 @@ export function CardDialog({ card, open, onOpenChange, actions }: {
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">{c.name} <RarityBadge rarity={c.rarity} /></DialogTitle>
-          <DialogDescription>Token ID #{c.id} · ERC-1155 · uri: api/metadata/{c.id}.json</DialogDescription>
+          <DialogDescription className="break-all">Token ID #{c.id} · ERC-1155 · uri: {shortUri(c.uri) ?? `api/metadata/${c.id}.json`}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-5 sm:grid-cols-[200px_1fr]">
           <div className="space-y-3">

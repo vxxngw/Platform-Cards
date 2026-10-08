@@ -1,18 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
 import { CardFace } from '@/components/tc/CardFace'
-import { http, fmtEth, fmtUsd, short, timeAgo, RARITY_COLOR, RARITY_NAMES, RARITY_ODDS, type ChainEvent } from '@/lib/tc'
+import { http, fmtEth, fmtUsd, short, timeAgo, RARITY_COLOR, RARITY_NAMES, RARITY_ODDS, CHAIN_MODE, type ChainEvent } from '@/lib/tc'
 import { useEthUsd, useEvents, useSets } from '@/lib/hooks'
 import { Link } from '@/lib/router'
 import { Skeleton } from '@/components/ui/skeleton'
 
 type Stats = { packsSold: number; sales: number; volume: string; activeListings: number; wallets: number }
 
+// VRF request ids are 256-bit numbers (77 digits); the demo backend uses small integers
+const shortReq = (id: unknown) => { const s = String(id); return s.length > 12 ? `#${s.slice(0, 5)}…${s.slice(-4)}` : `#${s}` }
+
 export function describeEvent(e: ChainEvent): string {
   const a = e.args as Record<string, any>
   switch (e.name) {
     case 'PacksPurchased': return `${short(a.buyer)} mua ${a.qty} pack · ${fmtEth(Number(a.paid) / 1e18)} ETH`
-    case 'OpenRequested': return `${short(a.buyer)} yêu cầu mở ${a.qty} pack (req #${a.reqId})`
-    case 'PackOpened': return `Req #${a.reqId} hoàn tất · ${a.cardIds?.length ?? 0} thẻ được mint`
+    case 'OpenRequested': return `${short(a.buyer)} yêu cầu mở ${a.qty} pack (req ${shortReq(a.reqId)})`
+    case 'RandomnessReady': return `Chainlink VRF đã trả số ngẫu nhiên (req ${shortReq(a.reqId)})`
+    case 'PackOpened': return `Req ${shortReq(a.reqId)} hoàn tất · ${a.cardIds?.length ?? 0} thẻ được mint`
     case 'Listed': return `${short(a.seller)} niêm yết ${a.isBundle ? 'nguyên bộ' : `${a.amounts?.[0]}× thẻ #${a.ids?.[0]}`} · ${fmtEth(Number(a.price) / 1e18, 5)} ETH`
     case 'Sold': return `Listing #${a.listingId} đã bán cho ${short(a.buyer)} · ${fmtEth(Number(a.price) / 1e18, 5)} ETH`
     case 'Cancelled': return `Listing #${a.listingId} bị huỷ`
@@ -142,7 +146,11 @@ export default function Home() {
           <ul className="space-y-1.5 text-xs text-fg-subtle">
             <li>Lá thứ 5 của mỗi pack rút từ bảng Rare+ → luôn có ít nhất 1 thẻ Rare trở lên.</li>
             <li>Thẻ chạm maxSupply thì lượt rút rơi xuống độ hiếm thấp hơn kế tiếp.</li>
-            <li>Mỗi lần mở có reqId, seed và cam kết seed để bạn tự kiểm chứng kết quả.</li>
+            <li>
+              {CHAIN_MODE
+                ? 'Số ngẫu nhiên do Chainlink VRF cấp (kèm bằng chứng mật mã) và được ghi on-chain, nên ai cũng kiểm chứng được kết quả mở pack.'
+                : 'Mỗi lần mở có reqId, seed và cam kết seed để bạn tự kiểm chứng kết quả.'}
+            </li>
           </ul>
         </div>
         <ActivityFeed />

@@ -78,7 +78,8 @@ export function CardFace({ card, className, count, dim, onClick, quality = 'low'
       {card.rarity >= 3 && !dim && (
         <div className="pointer-events-none absolute inset-0 opacity-40 mix-blend-overlay" style={{ background: 'linear-gradient(115deg, transparent 30%, rgba(255,255,255,.7) 45%, transparent 60%)' }} />
       )}
-      <div className="absolute left-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] text-white/80">#{card.id}</div>
+      {/* the real card art prints its own name in the top-left corner, so the token id moves to the bottom strip */}
+      {!src && <div className="absolute left-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] text-white/80">#{card.id}</div>}
       {count != null && count > 0 && (
         <div className="absolute right-1.5 top-1.5 rounded bg-white px-1.5 py-0.5 font-mono text-[10px] font-bold text-black">×{count}</div>
       )}
@@ -86,7 +87,7 @@ export function CardFace({ card, className, count, dim, onClick, quality = 'low'
         // the card art already prints its name: keep only a slim tier strip so the artwork stays readable
         <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/90 to-black/10 px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>
           <span>{RARITY_NAMES[card.rarity]}</span>
-          <span className="font-mono text-white/60">{card.isReward ? 'REWARD' : card.localId ?? card.cardNo}</span>
+          <span className="font-mono text-white/70">#{card.id}</span>
         </div>
       ) : (
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-2 pb-2 pt-6">

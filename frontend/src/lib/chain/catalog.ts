@@ -5,6 +5,7 @@ import { ADDR, IPFS_GATEWAY } from './config'
 import { readMany } from './client'
 import { byName, sync } from './events'
 import { parseCardMetadata } from '../pokemon/metadata'
+import { sleep } from '../pokemon/async'
 
 const RARITY = ['Common', 'Rare', 'Epic', 'Legendary', 'Reward']
 
@@ -29,12 +30,29 @@ function firstSuccess<T>(tasks: (() => Promise<T>)[]): Promise<T> {
   })
 }
 
+// The public Pinata gateway answers 429 when the whole catalog (one JSON per token) is requested at once, so requests
+// are queued (6 in flight) and a failed round is retried with a short back-off before the token is given up for a minute.
+let inFlight = 0
+const queue: (() => void)[] = []
+async function limited<T>(fn: () => Promise<T>): Promise<T> {
+  while (inFlight >= 6) await new Promise<void>((r) => queue.push(r))
+  inFlight++
+  try { return await fn() } finally { inFlight--; queue.shift()?.() }
+}
+
 async function fetchJson(uri: string): Promise<unknown> {
-  return firstSuccess(gatewayUrls(uri).map((u) => async () => {
-    const r = await fetch(u, { signal: AbortSignal.timeout(8000) })
-    if (!r.ok) throw new Error(String(r.status))
-    return r.json()
-  }))
+  let last: unknown
+  for (const delay of [0, 1500, 4000]) {
+    if (delay) await sleep(delay)
+    try {
+      return await limited(() => firstSuccess(gatewayUrls(uri).map((u) => async () => {
+        const r = await fetch(u, { signal: AbortSignal.timeout(8000) })
+        if (!r.ok) throw new Error(String(r.status))
+        return r.json()
+      })))
+    } catch (e) { last = e }
+  }
+  throw last
 }
 
 // id|uri → parsed metadata. Successes are kept for the session; failures are retried after a minute so a dead base URI
@@ -44,13 +62,25 @@ const FAIL_RETRY_MS = 60_000
 /** Raw metadata JSON of every token fetched so far — the Pack Builder re-pins these when it publishes a new folder. */
 const rawByTokenId = new Map<number, unknown>()
 
+// ipfs:// URIs contain the CID, so their content never changes: keep it in localStorage and skip the (slow, rate-limited)
+// public gateways on later visits. http(s) URIs (metadata served by the app itself) are not persisted.
+const LS_PREFIX = 'tc.meta.v1:'
+function lsGet(uri: string): unknown | null {
+  try { return uri.startsWith('ipfs://') ? JSON.parse(localStorage.getItem(LS_PREFIX + uri) || 'null') : null } catch { return null }
+}
+function lsSet(uri: string, json: unknown) {
+  try { if (uri.startsWith('ipfs://')) localStorage.setItem(LS_PREFIX + uri, JSON.stringify(json)) } catch { /* quota or private mode */ }
+}
+
 function fetchMeta(id: number, uri: string): Promise<unknown | null> {
   const key = `${id}|${uri}`
   const hit = metaCache.get(key)
   if (hit?.p) return hit.p
   if (hit && (hit.json || Date.now() - hit.at < FAIL_RETRY_MS)) return Promise.resolve(hit.json)
+  const stored = lsGet(uri)
+  if (stored) { metaCache.set(key, { at: Date.now(), json: stored }); rawByTokenId.set(id, stored); return Promise.resolve(stored) }
   const p = fetchJson(uri).then(
-    (json) => { metaCache.set(key, { at: Date.now(), json }); rawByTokenId.set(id, json); return json },
+    (json) => { metaCache.set(key, { at: Date.now(), json }); rawByTokenId.set(id, json); lsSet(uri, json); return json },
     () => { metaCache.set(key, { at: Date.now(), json: null }); return null },
   )
   metaCache.set(key, { at: hit?.at ?? 0, json: null, p })
@@ -110,6 +140,7 @@ async function build(): Promise<Catalog> {
       maxSupply: Number(maxSupply), supply, minted: supply + burned, burned,
       cardNo: isReward ? 0 : set.cardIds.indexOf(id) + 1, hue: m?.hue ?? (id * 47) % 360, isReward, priceRef: m?.priceRef ?? null,
       image: m?.image ?? null, setName: m?.setName, localId: m?.localId, officialRarity: m?.officialRarity, tcgdexId: m?.tcgdexId, lang: m?.lang,
+      uri: cardRes[i * 3 + 2] as string,
     })
   })
 

@@ -253,7 +253,7 @@ export default function OpenPacks() {
             {history.data!.map((h) => (
               <button key={h.reqId} onClick={() => { setFlipped(new Set(h.cards.map((_, i) => i))); setActive(h.reqId) }}
                 className="flex w-full items-center gap-3 px-4 py-2 text-left text-xs hover:bg-bg-subtle">
-                <span className="w-12 font-mono text-fg-muted">#{h.reqId}</span>
+                <span className="w-24 shrink-0 truncate font-mono text-fg-muted" title={String(h.reqId)}>#{String(h.reqId).length > 10 ? `${String(h.reqId).slice(0, 4)}…${String(h.reqId).slice(-4)}` : h.reqId}</span>
                 <span className="flex-1">{h.setName} · {h.count} pack</span>
                 <span className="flex gap-0.5">
                   {h.cards.filter((c) => c.rarity >= 1).slice(0, 8).map((c, i) => (

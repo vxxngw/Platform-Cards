@@ -15,6 +15,8 @@ export type Card = {
   isReward: boolean; priceRef: PriceRef | null
   /** v2 (TCGdex snapshot in the token metadata). Absent in demo mode and for v1 cards, which fall back to generated art. */
   image?: string | null; setName?: string; localId?: string; officialRarity?: string; tcgdexId?: string; lang?: string
+  /** ERC-1155 uri(id) as returned by the contract (ipfs://<CID>/<id>.json). */
+  uri?: string
 }
 export type OwnedCard = Card & { balance: number; listed: number }
 export type PackInfo = { price: string; remaining: number; total: number; onSale: boolean } | null
