@@ -1,13 +1,32 @@
-// On-chain mode is opt-in. Without VITE_CHAIN_MODE=onchain the app keeps using the off-chain demo backend.
 const env = import.meta.env as Record<string, string | undefined>
 
-export const CHAIN_MODE = env.VITE_CHAIN_MODE === 'onchain'
 export const CHAIN_ID = Number(env.VITE_CHAIN_ID || 11155111) // Sepolia
 export const RPC_URL = env.VITE_RPC_URL || undefined
 // eth_getLogs often has tight range limits (Alchemy free tier: 10 blocks), so logs may use a different endpoint.
 export const LOGS_RPC_URL = env.VITE_LOGS_RPC_URL || (CHAIN_ID === 11155111 ? 'https://ethereum-sepolia-rpc.publicnode.com' : RPC_URL)
 export const DEPLOY_BLOCK = BigInt(env.VITE_DEPLOY_BLOCK || 0)
+/** Primary / legacy single-admin address (kept for backward-compat). */
 export const ADMIN_ADDRESS = (env.VITE_ADMIN_ADDRESS || '').toLowerCase()
+
+/**
+ * Multi-admin list.
+ * Set VITE_ADMIN_ADDRESSES to a comma-separated list of addresses, e.g.:
+ *   VITE_ADMIN_ADDRESSES=0xAbc...,0xDef...
+ * Falls back to VITE_ADMIN_ADDRESS when VITE_ADMIN_ADDRESSES is not set.
+ */
+export const ADMIN_ADDRESSES: string[] = (() => {
+  const raw = env.VITE_ADMIN_ADDRESSES || env.VITE_ADMIN_ADDRESS || ''
+  return raw
+    .split(',')
+    .map((a) => a.trim().toLowerCase())
+    .filter(Boolean)
+})()
+
+/** Returns true if `addr` is in the configured admin list. */
+export const isAdminAddr = (addr: string | null | undefined): boolean =>
+  !!addr && ADMIN_ADDRESSES.includes(addr.toLowerCase())
+// Privy App ID (public, from dashboard.privy.io). The App secret is never needed in the browser.
+export const PRIVY_APP_ID = env.VITE_PRIVY_APP_ID || ''
 export const IPFS_GATEWAY = env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/'
 
 export const ADDR = {

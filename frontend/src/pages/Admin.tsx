@@ -1,14 +1,14 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Check, X } from 'lucide-react'
+import { ArrowRight, Hammer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { sendTx, fmtEth, RARITY_NAMES, RARITY_COLOR, CHAIN_MODE, type CardSet } from '@/lib/tc'
-import { Link } from '@/lib/router'
+import { EmptyState, Frame, PageHero } from '@/components/royal/Ornaments'
+import { Chronicle } from '@/components/royal/Chronicle'
+import { http, sendTx, fmtEth, useWalletStore, type CardSet } from '@/lib/tc'
+import { connectNewWallet } from '@/components/tc/Shell'
 import { useConfig, useMe, useRefresh, useSets } from '@/lib/hooks'
-import { ActivityFeed } from './Home'
-
-const SUPPLY = [10000, 3000, 800, 100]
-const DEFAULT_ROWS = [3, 2, 2, 1, 1, 1, 0, 0, 0, 0, 0].map((r) => ({ name: '', rarity: r, maxSupply: SUPPLY[r], priceQ: '' }))
 
 function PackRow({ s }: { s: CardSet }) {
   const refresh = useRefresh()
@@ -17,74 +17,66 @@ function PackRow({ s }: { s: CardSet }) {
   const [busy, setBusy] = useState(false)
   const save = async (onSale: boolean) => {
     setBusy(true)
-    try { await sendTx(`configurePack bộ #${s.id}`, `tc/sets/${s.id}/pack`, { price, supply: Number(supply), onSale }); refresh() } catch { /* toast */ } finally { setBusy(false) }
+    try { await sendTx(`configurePack set #${s.id}`, `tc/sets/${s.id}/pack`, { price, supply: Number(supply), onSale }); refresh() } catch { /* toast shown */ } finally { setBusy(false) }
   }
   return (
-    <div className="grid grid-cols-[1fr_110px_110px_auto] items-center gap-2 py-2 text-sm">
+    <div className="grid grid-cols-[1fr_110px_110px_auto] items-center gap-2 py-2.5 text-sm">
       <div className="min-w-0">
-        <div className="truncate font-medium">#{s.id} {s.name}</div>
-        <div className="text-[11px] text-fg-muted">{s.pack ? `${s.pack.total - s.pack.remaining} đã bán · ${s.pack.onSale ? 'đang bán' : 'đã đóng'}` : 'chưa cấu hình'}</div>
+        <div className="truncate font-display font-bold text-ivory">#{s.id} {s.name}</div>
+        <div className="text-xs text-fg-muted">{s.pack ? `${s.pack.total - s.pack.remaining} sold · ${s.pack.onSale ? 'on sale' : 'closed'}` : 'not configured'}</div>
       </div>
-      <Input className="h-8" value={price} onChange={(e) => setPrice(e.target.value.replace(',', '.'))} aria-label="Giá ETH" />
-      <Input className="h-8" value={supply} onChange={(e) => setSupply(e.target.value)} aria-label="Số pack còn lại" />
+      <Input className="h-8" value={price} onChange={(e) => setPrice(e.target.value.replace(',', '.'))} aria-label="Price in ETH" />
+      <Input className="h-8" value={supply} onChange={(e) => setSupply(e.target.value)} aria-label="Packs remaining" />
       <div className="flex gap-1">
-        <Button size="sm" disabled={busy} onClick={() => save(true)}>{s.pack?.onSale ? 'Lưu' : 'Mở bán'}</Button>
-        {s.pack?.onSale && <Button size="sm" variant="outline" disabled={busy} onClick={() => save(false)}>Đóng</Button>}
+        <Button size="sm" disabled={busy} onClick={() => save(true)}>{s.pack?.onSale ? 'Save' : 'Open sale'}</Button>
+        {s.pack?.onSale && <Button size="sm" variant="outline" disabled={busy} onClick={() => save(false)}>Close</Button>}
       </div>
     </div>
   )
 }
 
-function CreateSet() {
-  const refresh = useRefresh()
-  const [name, setName] = useState('')
-  const [desc, setDesc] = useState('')
-  const [reward, setReward] = useState('')
-  const [rows, setRows] = useState(DEFAULT_ROWS)
-  const [busy, setBusy] = useState(false)
-  const upd = (i: number, patch: Partial<(typeof rows)[number]>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)))
-  async function submit() {
-    setBusy(true)
-    try {
-      await sendTx(`createSet “${name}”`, 'tc/sets', {
-        name, description: desc, rewardName: reward,
-        cards: rows.map((r) => ({ name: r.name, rarity: r.rarity, maxSupply: r.maxSupply, priceRef: r.priceQ ? { game: 'pokemon', q: r.priceQ } : undefined })),
-      })
-      setName(''); setDesc(''); setReward(''); setRows(DEFAULT_ROWS)
-      refresh()
-    } catch { /* toast */ } finally { setBusy(false) }
-  }
+type Diag = Record<string, unknown>
+const errOf = (v: unknown) => (v && typeof v === 'object' && 'error' in v ? String((v as { error: unknown }).error) : null)
+
+/** Shown instead of the admin tools when the connected wallet is not recognised: every check, its result and the fix. */
+function AccessCheck() {
+  const { current } = useWalletStore()
+  const q = useQuery({ queryKey: ['diagnostics', current], queryFn: () => http<Diag>('tc/diagnostics'), retry: 0 })
+  const d = q.data
+  const lower = (v: unknown) => String(v ?? '').toLowerCase()
+  const adminList: string[] = Array.isArray(d?.adminAddresses) ? (d.adminAddresses as string[]) : d?.adminAddressEnv ? [String(d.adminAddressEnv)] : []
+  const adminListLabel = adminList.length > 0 ? adminList.join(', ') : 'not set'
+  const rows: { label: string; ok: boolean | null; value: string; fix?: string }[] = d ? [
+    { label: 'Wallet connected', ok: !!d.connected, value: String(d.connected ?? 'none'), fix: 'Connect the deployer wallet as an external wallet (MetaMask) in the Privy modal — an email sign-in creates a different address.' },
+    { label: 'In VITE_ADMIN_ADDRESSES list', ok: adminList.length > 0 ? (d.connected ? adminList.includes(lower(d.connected)) : false) : null, value: adminListLabel, fix: 'Add your wallet to VITE_ADMIN_ADDRESSES (comma-separated) or set VITE_ADMIN_ADDRESS, then redeploy.' },
+    { label: 'RPC network', ok: errOf(d.rpcChainId) ? false : d.rpcChainId === d.expectedChainId, value: errOf(d.rpcChainId) ?? `chain ${d.rpcChainId} (expected ${d.expectedChainId}) · ${d.rpc}`, fix: 'VITE_RPC_URL must be a Sepolia endpoint (chain 11155111) that answers from the browser. Leave it empty to use the public default.' },
+    { label: 'CardCollection deployed at VITE_COLLECTION_ADDRESS', ok: errOf(d.collectionDeployed) ? false : d.collectionDeployed === true, value: errOf(d.collectionDeployed) ?? String(d.collection), fix: 'Check VITE_COLLECTION_ADDRESS against contracts/deployments.sepolia.json and redeploy.' },
+    { label: 'Wallet holds ADMIN_ROLE', ok: d.connected ? (errOf(d.hasAdminRole) ? false : d.hasAdminRole === true) : null, value: errOf(d.hasAdminRole) ?? String(d.hasAdminRole ?? '—'), fix: 'Only the deployer (or a wallet granted ADMIN_ROLE on CardCollection) can manage the realm.' },
+    { label: 'Event logs readable', ok: !errOf(d.eventLogs), value: errOf(d.eventLogs) ?? String(d.eventLogs), fix: 'Sets, listings and history need eth_getLogs. Set VITE_LOGS_RPC_URL to an endpoint with a wide getLogs range, or check VITE_DEPLOY_BLOCK.' },
+  ] : []
   return (
-    <div className="space-y-3 rounded-xl border border-border p-4">
-      <div>
-        <div className="font-semibold">Tạo bộ mới</div>
-        <p className="text-xs text-fg-muted">createSet: tạo cardId liên tiếp + 1 thẻ thưởng. Bộ cần 8–12 thẻ, đủ 4 độ hiếm. Sau khi tạo, cấu hình pack ở bảng bên cạnh để mở bán.</p>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Input placeholder="Tên bộ" value={name} onChange={(e) => setName(e.target.value)} />
-        <Input placeholder="Tên thẻ thưởng" value={reward} onChange={(e) => setReward(e.target.value)} />
-      </div>
-      <Textarea placeholder="Mô tả" rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} />
-      <div className="space-y-1.5">
-        <div className="grid grid-cols-[24px_1fr_120px_100px_1fr_28px] gap-2 text-[11px] text-fg-muted">
-          <span>#</span><span>Tên thẻ</span><span>Độ hiếm</span><span>maxSupply</span><span>priceRef (tuỳ chọn, VD “charizard base set”)</span><span />
+    <div className="mx-auto max-w-3xl space-y-6">
+      <EmptyState title="The throne room is closed" body="This wallet was not recognised as an admin. The checks below show which step fails."
+        action={!current ? <Button onClick={() => connectNewWallet().catch(() => {})}>Connect wallet</Button> : undefined} />
+      <Frame className="p-5">
+        <div className="kicker mb-3">Access check</div>
+        {q.isLoading && <div className="text-fg-muted">Running checks…</div>}
+        {q.error && <div className="text-destructive">{(q.error as Error).message}</div>}
+        <div className="divide-y divide-gold/10">
+          {rows.map((r) => (
+            <div key={r.label} className="flex gap-3 py-3 text-sm">
+              <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full ${r.ok === null ? 'bg-fg-muted/20 text-fg-muted' : r.ok ? 'bg-emerald/25 text-[#6fe0b3]' : 'bg-crimson/40 text-[#ffb3b8]'}`}>
+                {r.ok === null ? '–' : r.ok ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="font-display font-bold text-ivory">{r.label}</div>
+                <div className="break-all font-mono text-xs text-fg-muted">{r.value}</div>
+                {r.ok === false && r.fix && <div className="mt-1 text-fg-subtle">{r.fix}</div>}
+              </div>
+            </div>
+          ))}
         </div>
-        {rows.map((r, i) => (
-          <div key={i} className="grid grid-cols-[24px_1fr_120px_100px_1fr_28px] items-center gap-2">
-            <span className="font-mono text-xs text-fg-muted">{i + 1}</span>
-            <Input className="h-8" value={r.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="Tên thẻ" />
-            <select className="h-8 rounded-md border border-border bg-background px-2 text-sm" style={{ color: RARITY_COLOR[r.rarity] }}
-              value={r.rarity} onChange={(e) => upd(i, { rarity: Number(e.target.value), maxSupply: SUPPLY[Number(e.target.value)] })}>
-              {RARITY_NAMES.slice(0, 4).map((n, k) => <option key={n} value={k}>{n}</option>)}
-            </select>
-            <Input className="h-8" type="number" value={r.maxSupply} onChange={(e) => upd(i, { maxSupply: Number(e.target.value) })} />
-            <Input className="h-8" value={r.priceQ} onChange={(e) => upd(i, { priceQ: e.target.value })} placeholder="—" />
-            <button className="text-fg-muted hover:text-destructive disabled:opacity-30" disabled={rows.length <= 8} onClick={() => setRows(rows.filter((_, j) => j !== i))} aria-label="Xoá">×</button>
-          </div>
-        ))}
-        <Button size="sm" variant="outline" disabled={rows.length >= 12} onClick={() => setRows([...rows, { name: '', rarity: 0, maxSupply: SUPPLY[0], priceQ: '' }])}>+ Thêm thẻ ({rows.length}/12)</Button>
-      </div>
-      <Button className="w-full" disabled={busy || !name.trim() || rows.some((r) => !r.name.trim())} onClick={submit}>Tạo bộ</Button>
+      </Frame>
     </div>
   )
 }
@@ -98,63 +90,63 @@ export default function Admin() {
   const [busy, setBusy] = useState(false)
 
   if (!me.data?.wallet?.isAdmin) {
-    return <div className="mx-auto max-w-md rounded-xl border border-border p-8 text-center text-sm text-fg-subtle">Trang này chỉ dành cho ví có ADMIN_ROLE. Chuyển sang “Deployer (Admin)” trong menu ví.</div>
+    if (me.isLoading) return <EmptyState title="Checking your seal…" body="Reading ADMIN_ROLE from the CardCollection contract." />
+    return <AccessCheck />
   }
   const c = cfg.data
   const run = async (label: string, path: string, body: unknown = {}) => {
     setBusy(true)
-    try { await sendTx(label, path, body); refresh() } catch { /* toast */ } finally { setBusy(false) }
+    try { await sendTx(label, path, body); refresh() } catch { /* toast shown */ } finally { setBusy(false) }
   }
   const revenue = Number(c?.packRevenue || 0) + Number(c?.marketFees || 0)
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-black">Admin</h1>
-        <p className="text-sm text-fg-subtle">Ví deployer giữ ADMIN_ROLE trên cả 3 hợp đồng. PackSale giữ MINTER_ROLE.</p>
-      </div>
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-xl border border-border p-4">
-          <div className="text-xs text-fg-muted">Doanh thu chờ rút</div>
-          <div className="mt-1 font-mono text-2xl font-bold">{fmtEth(revenue, 6)} ETH</div>
-          <div className="mt-1 text-[11px] text-fg-muted">Pack {fmtEth(c?.packRevenue || 0, 6)} · phí sàn {fmtEth(c?.marketFees || 0, 6)}</div>
-          <Button size="sm" className="mt-3" disabled={busy || revenue <= 0} onClick={() => run('Rút doanh thu', 'tc/admin/withdraw')}>withdraw()</Button>
-        </div>
-        <div className="rounded-xl border border-border p-4">
-          <div className="text-xs text-fg-muted">Trạng thái hợp đồng</div>
-          <div className={`mt-1 text-2xl font-bold ${c?.paused ? 'text-destructive' : 'text-emerald-400'}`}>{c?.paused ? 'Đang tạm dừng' : 'Hoạt động'}</div>
-          <div className="mt-1 text-[11px] text-fg-muted">Pause chặn mua/mở pack, chuyển thẻ, niêm yết, mua bán, đổi thưởng.</div>
-          <Button size="sm" variant={c?.paused ? 'default' : 'destructive'} className="mt-3" disabled={busy}
+    <div className="space-y-8">
+      <PageHero kicker="The Throne Room" title="Administration" sub="The deployer wallet holds ADMIN_ROLE on all three contracts; PackSale holds MINTER_ROLE on CardCollection.">
+        <Button asChild size="lg"><a href="#/admin/pack-builder"><Hammer /> Open the Pack Builder</a></Button>
+      </PageHero>
+
+      <div className="grid gap-5 md:grid-cols-3">
+        <Frame className="p-5">
+          <div className="kicker">Treasury</div>
+          <div className="mt-2 font-display text-3xl font-bold text-gold-bright">{fmtEth(revenue, 6)} ETH</div>
+          <div className="mt-1 text-sm text-fg-muted">Packs {fmtEth(c?.packRevenue || 0, 6)} · fees {fmtEth(c?.marketFees || 0, 6)}</div>
+          <Button size="sm" className="mt-4" disabled={busy || revenue <= 0} onClick={() => run('Withdraw revenue', 'tc/admin/withdraw')}>withdraw()</Button>
+        </Frame>
+        <Frame className="p-5">
+          <div className="kicker">Contract state</div>
+          <div className={`mt-2 font-display text-3xl font-bold ${c?.paused ? 'text-destructive' : 'text-[#6fe0b3]'}`}>{c?.paused ? 'Paused' : 'Active'}</div>
+          <div className="mt-1 text-sm text-fg-muted">Pausing halts pack sales and openings, card transfers, listings, trades and redemptions.</div>
+          <Button size="sm" variant={c?.paused ? 'default' : 'destructive'} className="mt-4" disabled={busy}
             onClick={() => run(c?.paused ? 'unpause()' : 'pause()', 'tc/admin/pause', { paused: !c?.paused })}>{c?.paused ? 'unpause()' : 'pause()'}</Button>
-        </div>
-        <div className="rounded-xl border border-border p-4">
-          <div className="text-xs text-fg-muted">Phí sàn</div>
-          <div className="mt-1 font-mono text-2xl font-bold">{(c?.feeBps ?? 0) / 100}% <span className="text-sm text-fg-muted">({c?.feeBps} bps)</span></div>
-          <div className="mt-3 flex gap-2">
-            <Input className="h-8" placeholder="bps, tối đa 1000" value={fee} onChange={(e) => setFee(e.target.value)} />
+        </Frame>
+        <Frame className="p-5">
+          <div className="kicker">Marketplace fee</div>
+          <div className="mt-2 font-display text-3xl font-bold text-ivory">{(c?.feeBps ?? 0) / 100}% <span className="text-sm text-fg-muted">({c?.feeBps} bps)</span></div>
+          <div className="mt-4 flex gap-2">
+            <Input className="h-8" placeholder="bps, max 1000" value={fee} onChange={(e) => setFee(e.target.value)} />
             <Button size="sm" disabled={busy || fee === ''} onClick={() => run('setFee', 'tc/admin/fee', { bps: Number(fee) }).then(() => setFee(''))}>setFee</Button>
           </div>
-        </div>
+        </Frame>
       </div>
-      {CHAIN_MODE && (
-        <Link to="/admin/pack-builder" className="flex items-center justify-between gap-4 rounded-xl border border-primary/40 bg-primary/5 p-4 hover:bg-primary/10">
-          <div>
-            <div className="font-semibold">Pack Builder — tạo bộ thẻ từ TCGdex</div>
-            <p className="text-xs text-fg-subtle">Duyệt thẻ Pokémon TCG, bấm chọn 11 thẻ + 1 thẻ thưởng, tự điền metadata và phát hành set, pack trong vài phút.</p>
-          </div>
-          <span className="shrink-0 text-sm font-semibold text-primary">Mở →</span>
-        </Link>
-      )}
-      <div className="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
-        {!CHAIN_MODE ? <CreateSet /> : <div className="rounded-xl border border-border p-4 text-sm text-fg-subtle">Tạo bộ mới ở chế độ on-chain: dùng <Link to="/admin/pack-builder" className="text-primary hover:underline">Pack Builder</Link> (có chế độ “Thêm thẻ nhập tay” cho thẻ tự thiết kế).</div>}
-        <div className="space-y-5">
-          <div className="rounded-xl border border-border p-4">
-            <div className="font-semibold">Cấu hình pack</div>
-            <div className="mt-1 grid grid-cols-[1fr_110px_110px_auto] gap-2 text-[11px] text-fg-muted"><span>Bộ</span><span>Giá (ETH)</span><span>Số pack còn</span><span /></div>
-            <div className="divide-y divide-border">{(sets.data || []).map((s) => <PackRow key={`${s.id}-${s.pack?.price}-${s.pack?.remaining}`} s={s} />)}</div>
-          </div>
-          <ActivityFeed limit={15} />
+
+      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+        <div className="space-y-6">
+          <Frame className="p-5">
+            <div className="kicker mb-3">Pack sales</div>
+            <div className="grid grid-cols-[1fr_110px_110px_auto] gap-2 font-display text-[10px] tracking-[0.16em] text-fg-muted"><span>SET</span><span>PRICE (ETH)</span><span>PACKS LEFT</span><span /></div>
+            <div className="divide-y divide-gold/10">{(sets.data || []).map((s) => <PackRow key={`${s.id}-${s.pack?.price}-${s.pack?.remaining}`} s={s} />)}</div>
+            {sets.data?.length === 0 && <div className="py-6 text-center text-fg-muted">No set yet.</div>}
+          </Frame>
+          <Frame className="flex items-center justify-between gap-4 p-5">
+            <div>
+              <div className="font-display font-bold text-ivory">Forge a new set</div>
+              <p className="text-sm text-fg-subtle">Browse Pokémon TCG cards on TCGdex, pick 11 cards plus a reward card, and publish the set and its packs in minutes. Hand-entered cards are supported as a fallback.</p>
+            </div>
+            <Button asChild variant="outline"><a href="#/admin/pack-builder">Pack Builder <ArrowRight /></a></Button>
+          </Frame>
         </div>
+        <Chronicle limit={15} />
       </div>
     </div>
   )

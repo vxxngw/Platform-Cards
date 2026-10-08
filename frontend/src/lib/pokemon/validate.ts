@@ -26,7 +26,7 @@ export const tierCounts = (pool: PoolCard[]): Record<Tier, number> => {
 const isPosInt = (s: string | number) => /^\d+$/.test(String(s).trim()) && Number(s) > 0
 export const isPositiveDecimal = (s: string) => /^\d+(\.\d{1,18})?$/.test(s.trim()) && Number(s) > 0
 
-/** Spec v2 §3 "Kiểm tra trước khi cho bấm Phát hành" plus the numeric fields of the form. */
+/** Spec v2 §3 pre-publish checklist plus the numeric fields of the form. */
 export function validateDraft(d: DraftInput): CheckItem[] {
   const counts = tierCounts(d.pool)
   const missing = TIERS.filter((t) => counts[t] === 0).map((t) => TIER_NAMES[t])
@@ -35,26 +35,26 @@ export function validateDraft(d: DraftInput): CheckItem[] {
   const reward = d.reward
   const dup = reward ? d.pool.some((p) => p.key === reward.key || (p.tcgdexId && p.tcgdexId === reward.tcgdexId)) : false
   const items: CheckItem[] = [
-    { id: 'size', ok: d.pool.length === POOL_SIZE, label: `Đủ ${POOL_SIZE} thẻ trong pack (${d.pool.length}/${POOL_SIZE})` },
+    { id: 'size', ok: d.pool.length === POOL_SIZE, label: `${POOL_SIZE} cards in the pool (${d.pool.length}/${POOL_SIZE})` },
     {
-      id: 'tiers', ok: d.pool.length > 0 && missing.length === 0 && unassigned === 0, label: 'Mỗi bậc có ít nhất 1 thẻ',
-      hint: unassigned ? `${unassigned} thẻ chưa có bậc` : missing.length ? `Thiếu: ${missing.join(', ')}` : undefined,
+      id: 'tiers', ok: d.pool.length > 0 && missing.length === 0 && unassigned === 0, label: 'Every tier has at least one card',
+      hint: unassigned ? `${unassigned} card(s) without a tier` : missing.length ? `Missing: ${missing.join(', ')}` : undefined,
     },
     {
-      id: 'supply', ok: d.pool.length > 0 && unassigned === 0 && badSupply === 0, label: 'Mọi thẻ đã có bậc và maxSupply > 0',
-      hint: badSupply ? `${badSupply} thẻ có maxSupply không hợp lệ` : undefined,
+      id: 'supply', ok: d.pool.length > 0 && unassigned === 0 && badSupply === 0, label: 'Every card has a tier and maxSupply > 0',
+      hint: badSupply ? `${badSupply} card(s) with an invalid maxSupply` : undefined,
     },
     {
-      id: 'reward', ok: !!reward && !dup, label: 'Đã chọn thẻ thưởng, không trùng thẻ trong pool',
-      hint: !reward ? 'Chưa chọn thẻ thưởng' : dup ? 'Thẻ thưởng đang nằm trong pool' : undefined,
+      id: 'reward', ok: !!reward && !dup, label: 'Reward card chosen and not in the pool',
+      hint: !reward ? 'No reward card chosen' : dup ? 'The reward card is also in the pool' : undefined,
     },
     {
       id: 'form', ok: d.setName.trim().length > 0 && isPositiveDecimal(d.priceEth) && isPosInt(d.packs) && isPosInt(d.rewardSupply),
-      label: 'Tên bộ, giá pack, tổng số pack, supply thẻ thưởng hợp lệ',
+      label: 'Valid set name, pack price, pack count and reward supply',
     },
     {
-      id: 'wallet', ok: d.connected && d.isAdmin && d.rightNetwork, label: 'Ví Admin đã kết nối, đúng mạng Sepolia',
-      hint: !d.connected ? 'Chưa kết nối ví' : !d.isAdmin ? 'Ví này không có ADMIN_ROLE' : !d.rightNetwork ? 'Sai mạng' : undefined,
+      id: 'wallet', ok: d.connected && d.isAdmin && d.rightNetwork, label: 'Admin wallet connected on Sepolia',
+      hint: !d.connected ? 'No wallet connected' : !d.isAdmin ? 'This wallet lacks ADMIN_ROLE' : !d.rightNetwork ? 'Wrong network' : undefined,
     },
   ]
   return items
@@ -74,21 +74,21 @@ export function previewPool(pool: PoolCard[], reward?: PoolCard | null): Preview
   }))
   const warnings: string[] = []
   if (pool.length) {
-    if (counts[0] === 0) warnings.push('Bậc Common trống: pack không mint được (cần ít nhất 1 thẻ Common).')
+    if (counts[0] === 0) warnings.push('The Common tier is empty: packs cannot mint (at least one Common card is required).')
     for (const t of [1, 2, 3] as Tier[]) {
-      if (counts[t] === 0) warnings.push(`Bậc ${TIER_NAMES[t]} không có thẻ: lượt rút ${TIER_NAMES[t]} (${TIER_ODDS[t]}%) rơi xuống bậc thấp hơn kế tiếp.`)
+      if (counts[t] === 0) warnings.push(`The ${TIER_NAMES[t]} tier has no cards: ${TIER_NAMES[t]} draws (${TIER_ODDS[t]}%) fall to the next tier below.`)
     }
     const off = TIERS.filter((t) => counts[t] !== RECOMMENDED_COMPOSITION[t])
     if (off.length && pool.length === POOL_SIZE && TIERS.every((t) => counts[t] > 0)) {
-      warnings.push(`Cơ cấu khuyến nghị là ${TIERS.map((t) => RECOMMENDED_COMPOSITION[t]).join('/')} (Common/Rare/Epic/Legendary); bạn đang dùng ${TIERS.map((t) => counts[t]).join('/')}.`)
+      warnings.push(`The recommended mix is ${TIERS.map((t) => RECOMMENDED_COMPOSITION[t]).join('/')} (Common/Rare/Epic/Legendary); you have ${TIERS.map((t) => counts[t]).join('/')}.`)
     }
     const inferred = pool.filter((p) => p.tierSource === 'inferred').length
-    if (inferred) warnings.push(`${inferred} thẻ có bậc được suy ra ngoài bảng quy đổi của spec — hãy xem lại.`)
+    if (inferred) warnings.push(`${inferred} card(s) have a tier inferred outside the spec's mapping table — please review.`)
     const sets = new Set(pool.filter((p) => !p.custom).map((p) => `${p.lang}:${p.setId}`))
-    if (sets.size > 1) warnings.push(`Pool lấy từ ${sets.size} set Pokémon khác nhau; spec yêu cầu 11 thẻ từ một set.`)
-    if (reward && !reward.custom && sets.size === 1 && !sets.has(`${reward.lang}:${reward.setId}`)) warnings.push('Thẻ thưởng thuộc set Pokémon khác với pool.')
+    if (sets.size > 1) warnings.push(`The pool mixes ${sets.size} different Pokémon sets; the spec asks for 11 cards from a single set.`)
+    if (reward && !reward.custom && sets.size === 1 && !sets.has(`${reward.lang}:${reward.setId}`)) warnings.push('The reward card comes from a different Pokémon set than the pool.')
     const custom = pool.filter((p) => p.custom).length
-    if (custom) warnings.push(`${custom} thẻ nhập tay: không có dữ liệu TCGdex và không có giá tham chiếu.`)
+    if (custom) warnings.push(`${custom} hand-entered card(s): no TCGdex data and no reference price.`)
   }
   return { counts, rows, warnings }
 }

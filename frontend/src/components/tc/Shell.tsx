@@ -1,141 +1,151 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, Copy, Droplets, LogOut, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { http, sendTx, short, fmtEth, fmtUsd, useWalletStore, walletStore, CHAIN_MODE, type Wallet } from '@/lib/tc'
+import { fmtUsd } from '@/lib/tc'
 import { ChainWalletMenu } from './ChainWallet'
-import { connectInjected } from '@/lib/chain/wallet'
-import { useConfig, useEthUsd, useMe, useRefresh } from '@/lib/hooks'
+import { connectWallet } from '@/lib/chain/wallet'
+import { ADDR, ADMIN_ADDRESSES, isAdminAddr, addrUrl } from '@/lib/chain/config'
+import { useWalletStore } from '@/lib/tc'
+
+const ZERO = /^0x0{40}$/i
+const MISSING_CONFIG = ([['VITE_COLLECTION_ADDRESS', ADDR.collection], ['VITE_PACKSALE_ADDRESS', ADDR.packSale], ['VITE_MARKETPLACE_ADDRESS', ADDR.market]] as const)
+  .filter(([, a]) => ZERO.test(a)).map(([k]) => k)
+import { useConfig, useEthUsd, useMe } from '@/lib/hooks'
 import { Link } from '@/lib/router'
+import { BRAND } from '@/lib/brand'
+import { BrandMark, Divider } from '@/components/royal/Ornaments'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
 
-export async function connectNewWallet(label?: string) {
-  if (CHAIN_MODE) { await connectInjected(); return null as unknown as Wallet }
-  const w = await http<Wallet>('tc/wallets', { method: 'POST', json: { label: label || null } })
-  walletStore.select(w.address)
-  toast.success('Đã kết nối ví demo', { description: `${short(w.address)} · nhận 0.5 ETH testnet` })
-  return w
-}
-
-function WalletMenu() {
-  const { list, current } = useWalletStore()
-  const me = useMe()
-  const refresh = useRefresh()
-  const ethUsd = useEthUsd()
-  const wallets = useQuery({
-    queryKey: ['wallets', list.join(',')],
-    queryFn: () => http<Wallet[]>(`tc/wallets?addresses=${list.join(',')}`),
-  })
-  const w = me.data?.wallet
-
-  if (!current) {
-    return <Button size="sm" onClick={() => connectNewWallet().then(refresh)}>Kết nối ví</Button>
-  }
-  const nextLabel = `Ví ${String.fromCharCode(65 + Math.min(list.length, 25))}`
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 rounded-lg border border-border bg-bg-subtle px-2.5 py-1.5 text-sm hover:bg-bg-subtle-hover">
-          <span className="font-mono tabular-nums">{w ? `${fmtEth(w.balance)} ETH` : '…'}</span>
-          <span className="h-4 w-px bg-border" />
-          <span className="text-fg-subtle">{w?.label || short(current)}</span>
-          {w?.isAdmin && <span className="rounded bg-primary/15 px-1 text-[10px] font-bold text-primary">ADMIN</span>}
-          <ChevronDown className="size-3.5 text-fg-muted" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel className="space-y-1">
-          <div className="flex items-center justify-between font-mono text-xs">
-            <span>{short(current, 10)}</span>
-            <button className="text-fg-muted hover:text-fg-base" onClick={() => { navigator.clipboard?.writeText(current); toast('Đã copy địa chỉ') }}><Copy className="size-3.5" /></button>
-          </div>
-          {w && <div className="text-xs font-normal text-fg-muted">{fmtEth(w.balance, 6)} ETH {ethUsd ? `≈ ${fmtUsd(Number(w.balance) * ethUsd)}` : ''}</div>}
-        </DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => sendTx('Faucet Sepolia', 'tc/faucet').then(refresh).catch(() => {})}>
-          <Droplets /> Nhận 0.2 ETH testnet
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs font-normal text-fg-muted">Chuyển tài khoản</DropdownMenuLabel>
-        {(wallets.data || []).map((x) => (
-          <DropdownMenuItem key={x.address} onClick={() => { walletStore.select(x.address); refresh() }} className={cn(x.address === current && 'bg-bg-subtle')}>
-            <span className="flex-1 truncate">{x.label || short(x.address)}</span>
-            <span className="font-mono text-xs text-fg-muted">{fmtEth(x.balance, 3)}</span>
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuItem onClick={() => connectNewWallet(nextLabel).then(refresh)}><Plus /> Tạo ví demo mới</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => walletStore.disconnect()}><LogOut /> Ngắt kết nối</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
+/** Opens Privy's login / connect-wallet modal. The wallet store updates once the user finishes in the modal. */
+export async function connectNewWallet(): Promise<void> {
+  await connectWallet()
 }
 
 const NAV = [
-  { to: '/', label: 'Bộ thẻ' },
-  { to: '/open', label: 'Mở pack' },
-  { to: '/collection', label: 'Bộ sưu tập' },
-  { to: '/market', label: 'Chợ' },
+  { to: '/', label: 'Home' },
+  { to: '/gacha', label: 'Gacha' },
+  { to: '/market', label: 'Marketplace' },
+  { to: '/profile', label: 'Profile' },
 ]
+
+function isActive(path: string, to: string) {
+  if (to === '/') return path === '/'
+  if (to === '/gacha') return path.startsWith('/gacha') || path.startsWith('/sets')
+  if (to === '/profile') return path.startsWith('/profile') || path === '/open' || path === '/collection'
+  return path.startsWith(to)
+}
 
 export function Shell({ path, children }: { path: string; children: ReactNode }) {
   const me = useMe()
   const cfg = useConfig()
   const ethUsd = useEthUsd()
   const unopened = (me.data?.unopened || []).reduce((s, u) => s + u.count, 0)
-  const isAdmin = !!me.data?.wallet?.isAdmin
+  const { current } = useWalletStore()
+  // also show the link to the admin page so a failed role check can be diagnosed; any address in ADMIN_ADDRESSES qualifies
+  const isAdmin = !!me.data?.wallet?.isAdmin || isAdminAddr(current)
   const nav = isAdmin ? [...NAV, { to: '/admin', label: 'Admin' }] : NAV
-  const active = (to: string) => (to === '/' ? path === '/' || path.startsWith('/sets') : path.startsWith(to))
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4">
-          <Link to="/" className="flex items-baseline gap-1.5 font-black tracking-tight">
-            <span className="text-lg">Sàn Thẻ Bộ</span><span className="text-primary">.</span>
+    <div className="flex min-h-screen flex-col text-foreground">
+      <header className="sticky top-0 z-40 border-b border-gold/25 bg-[linear-gradient(180deg,rgba(20,14,34,.96),rgba(13,10,22,.9))] backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 md:gap-8">
+          <Link to="/" className="group flex shrink-0 items-center gap-2.5">
+            <BrandMark className="h-10 w-10 transition group-hover:drop-shadow-[0_0_10px_rgba(214,171,82,.6)]" />
+            <span className="gold-text hidden font-deco text-xl font-bold leading-none sm:inline">{BRAND}</span>
           </Link>
-          <nav className="flex items-center gap-1 overflow-x-auto">
-            {nav.map((n) => (
-              <Link key={n.to} to={n.to} className={cn('relative whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm text-fg-subtle hover:text-fg-base', active(n.to) && 'bg-bg-subtle text-fg-base')}>
-                {n.label}
-                {n.to === '/open' && unopened > 0 && (
-                  <span className="ml-1.5 rounded-full bg-primary px-1.5 text-[10px] font-bold text-white">{unopened}</span>
-                )}
-              </Link>
-            ))}
+          <nav className="hidden items-center gap-1 md:flex">
+            {nav.map((n) => <NavLink key={n.to} to={n.to} label={n.label} active={isActive(path, n.to)} badge={n.to === '/profile' ? unopened : 0} />)}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <div className="hidden items-center gap-2 text-xs text-fg-muted md:flex">
-              <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-emerald-400" />Sepolia</span>
-              {ethUsd && <span className="font-mono">ETH {fmtUsd(ethUsd)}</span>}
+            <div className="hidden items-center gap-3 font-display text-[11px] tracking-wider text-fg-muted lg:flex">
+              <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-emerald shadow-[0_0_6px_#2f9e74]" />Sepolia</span>
+              {ethUsd && <span>ETH {fmtUsd(ethUsd)}</span>}
             </div>
-            {mounted && (CHAIN_MODE ? <ChainWalletMenu /> : <WalletMenu />)}
+            {mounted && <ChainWalletMenu />}
           </div>
         </div>
+        <nav className="flex items-center gap-1 overflow-x-auto border-t border-gold/10 px-2 md:hidden">
+          {nav.map((n) => <NavLink key={n.to} to={n.to} label={n.label} active={isActive(path, n.to)} badge={n.to === '/profile' ? unopened : 0} />)}
+        </nav>
+        {MISSING_CONFIG.length > 0 && (
+          <div className="border-t border-destructive/40 bg-crimson/30 px-4 py-1.5 text-center text-xs text-ivory">
+            Misconfigured deployment: {MISSING_CONFIG.join(', ')} {MISSING_CONFIG.length > 1 ? 'are' : 'is'} not set, so the app cannot read the contracts. Add {MISSING_CONFIG.length > 1 ? 'them' : 'it'} in the hosting environment variables and redeploy.
+          </div>
+        )}
         {cfg.data?.paused && (
-          <div className="border-t border-destructive/30 bg-destructive/10 py-1.5 text-center text-xs text-destructive">
-            Hợp đồng đang tạm dừng (pause) — mọi giao dịch chuyển thẻ bị chặn cho đến khi Admin mở lại.
+          <div className="border-t border-destructive/40 bg-crimson/30 py-1.5 text-center font-display text-xs tracking-wide text-ivory">
+            The contracts are paused — card transfers are halted until an admin resumes them.
           </div>
         )}
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
-      <footer className="mx-auto max-w-7xl space-y-1.5 px-4 pb-8 pt-4 text-[11px] leading-5 text-fg-muted">
-        <p>
-          Dự án học thuật phi thương mại, chỉ chạy trên mạng thử nghiệm Sepolia, không dùng tiền thật. Thẻ là bản số trên testnet, không phải thẻ vật lý, không có giá trị tài chính.
-          Tên và hình ảnh thẻ Pokémon thuộc Nintendo / Creatures Inc. / GAME FREAK inc. / The Pokémon Company; dự án không liên kết hay được bảo trợ bởi các bên này.
-          Dữ liệu thẻ từ <a className="underline hover:text-fg-base" href="https://tcgdex.dev" target="_blank" rel="noreferrer">TCGdex</a>, giá tham chiếu từ <a className="underline hover:text-fg-base" href="https://index.renaissos.com" target="_blank" rel="noreferrer">Renaiss OS Index</a> (chỉ để tham khảo).
-        </p>
-        <p>
-          {CHAIN_MODE
-            ? 'Dữ liệu đọc trực tiếp từ 3 hợp đồng CardCollection · PackSale · Marketplace trên Sepolia (số dư, event). Giao dịch ký bằng ví của bạn; giá tham chiếu chỉ để tham khảo, không đưa vào hợp đồng.'
-            : 'Bản demo chạy mô phỏng off-chain, bám đúng logic 3 hợp đồng CardCollection · PackSale · Marketplace (event, phí 2,5%, escrow, pull payment, maxSupply). Mã giao dịch là mã mô phỏng. Ví là ví demo trong trình duyệt, không cần MetaMask.'}
-        </p>
+
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">{children}</main>
+
+      <footer className="mt-10 border-t border-gold/20 bg-[linear-gradient(180deg,rgba(13,10,22,0),rgba(8,6,14,.9))]">
+        <div className="mx-auto max-w-7xl px-4 pb-10 pt-8">
+          <Divider className="mb-8" />
+          <div className="grid gap-8 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <BrandMark className="h-10 w-10" />
+                <div className="gold-text font-deco text-xl font-bold">{BRAND}</div>
+              </div>
+              <p className="mt-3 max-w-sm text-sm text-fg-subtle">
+                Open sealed packs drawn by Chainlink VRF, complete royal sets, and trade cards peer to peer — every move settled on chain.
+              </p>
+            </div>
+            <FooterCol title="Explore" links={[['Home', '#/'], ['Gacha', '#/gacha'], ['Marketplace', '#/market'], ['Profile', '#/profile']]} />
+            <FooterCol title="Contracts" links={[
+              ['CardCollection', addrUrl(ADDR.collection)], ['PackSale', addrUrl(ADDR.packSale)], ['Marketplace', addrUrl(ADDR.market)],
+            ]} external />
+            <FooterCol title="Sources" links={[['TCGdex', 'https://tcgdex.dev'], ['Chainlink VRF', 'https://vrf.chain.link'], ['Renaiss OS Index (soon)', 'https://index.renaissos.com']]} external />
+          </div>
+          <p className="mt-8 border-t border-gold/10 pt-5 text-[11px] leading-5 text-fg-muted">
+            Non-commercial academic project running only on the Sepolia testnet — no real money is involved. Cards are digital testnet replicas, not physical cards, and carry no financial value.
+            Pokémon names and card images belong to Nintendo / Creatures Inc. / GAME FREAK inc. / The Pokémon Company; this project is not affiliated with or endorsed by them.
+            Card data and images from TCGdex. Market reference prices from Renaiss OS Index are coming soon and will be shown for reference only, never used by the contracts.
+          </p>
+        </div>
       </footer>
+    </div>
+  )
+}
+
+function NavLink({ to, label, active, badge }: { to: string; label: string; active: boolean; badge: number }) {
+  return (
+    <Link
+      to={to}
+      className={cn(
+        'relative flex items-center whitespace-nowrap px-3 py-2 font-display text-[13px] font-semibold tracking-[0.14em] uppercase transition',
+        active ? 'text-gold-bright' : 'text-fg-subtle hover:text-ivory',
+      )}
+    >
+      {label}
+      {badge > 0 && (
+        <span className="ml-1.5 rounded-full bg-crimson px-1.5 font-sans text-[10px] font-bold tracking-normal text-ivory ring-1 ring-gold/50">{badge}</span>
+      )}
+      {active && (
+        <span className="absolute inset-x-3 -bottom-px flex items-center justify-center">
+          <span className="h-px flex-1 bg-gradient-to-r from-transparent to-gold" />
+          <span className="mx-1 size-1.5 rotate-45 bg-gold" />
+          <span className="h-px flex-1 bg-gradient-to-l from-transparent to-gold" />
+        </span>
+      )}
+    </Link>
+  )
+}
+
+function FooterCol({ title, links, external }: { title: string; links: [string, string][]; external?: boolean }) {
+  return (
+    <div>
+      <div className="kicker mb-3">{title}</div>
+      <ul className="space-y-1.5 text-sm">
+        {links.filter(([, href]) => !!href).map(([label, href]) => (
+          <li key={label}>
+            <a href={href} className="text-fg-subtle transition hover:text-gold-bright" {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}>{label}</a>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

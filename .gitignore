@@ -1,0 +1,7 @@
+# secrets and local config — copy .env.example to .env
+.env
+.env.*
+!.env.example
+
+node_modules
+dist

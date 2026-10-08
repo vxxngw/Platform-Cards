@@ -21,7 +21,7 @@ async function getJson<T>(url: string, retries = 1): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       const r = await fetch(url, { signal: AbortSignal.timeout(12_000) })
-      if (!r.ok) throw new Error(`TCGdex trả về ${r.status}`)
+      if (!r.ok) throw new Error(`TCGdex answered ${r.status}`)
       return (await r.json()) as T
     } catch (e) {
       if (attempt >= retries) throw e
