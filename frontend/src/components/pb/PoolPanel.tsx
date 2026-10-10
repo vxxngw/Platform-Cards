@@ -66,7 +66,7 @@ export function PoolPanel({ pool, reward, lang, onChangeCard, onRemove, onClearR
             <button className="rounded p-1 text-fg-muted hover:bg-bg-subtle hover:text-destructive" onClick={onClearReward} aria-label="Remove reward card"><X className="size-4" /></button>
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed border-border px-3 py-3 text-xs text-fg-muted">Switch the picker on the left to “Reward card”, then click a card (same Pokémon set, not already in the pool).</div>
+          <div className="rounded-lg border border-dashed border-border px-3 py-3 text-xs text-fg-muted">Switch the picker on the left to “Reward cards”, then click a card (same Pokémon set, not already in the pool).</div>
         )}
       </div>
 
