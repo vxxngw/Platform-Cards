@@ -38,6 +38,8 @@ export type PoolCard = {
   name: string
   /** TCGdex image base URL (no extension) or a full image URL; null if there is none. */
   image: string | null
+  /** Where a borrowed image comes from (another printing's TCGdex id, or 'url'); absent when the card has its own image. */
+  imageFrom?: string | null
   officialRarity: string | null
   tier: Tier | null
   tierSource: TierSource | null
@@ -51,6 +53,8 @@ export type CardMetadata = {
   name: string
   description: string
   image?: string
+  /** Set when the image was borrowed from another printing (TCGdex id) or pasted by hand ('url'). */
+  imageFrom?: string
   attributes: { trait_type: string; value: string | number }[]
   source: 'tcgdex' | 'custom'
   tcgdexId?: string

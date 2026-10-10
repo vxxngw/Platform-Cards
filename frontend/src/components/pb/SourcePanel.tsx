@@ -132,7 +132,8 @@ export function SourcePanel({ lang, setLang, setId, setSetId, poolKeys, rewardKe
             return (
               <p className="rounded border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
                 TCGdex has {noImage >= all.length / 2 ? `no card images for ${noImage} of ${all.length} cards` : ''}{noImage >= all.length / 2 && noRarity >= all.length / 2 ? ' and ' : ''}{noRarity >= all.length / 2 ? `no official rarity (“None”) for ${noRarity} of ${all.length} cards` : ''} in this set yet.
-                New or special sets are often incomplete there. Pick a main-series set with full data, such as “151” (sv03.5) or “Surging Sparks” (sv08), or assign tiers by hand.
+                Sets that are not released yet, or reprint sets, are often incomplete there. You can still use it: pick the cards, then press “Find images” in the pack list to borrow the artwork of an earlier printing, and assign tiers by hand.
+                Or pick a set with full data, such as “151” (sv03.5) or “Surging Sparks” (sv08).
               </p>
             )
           })()}

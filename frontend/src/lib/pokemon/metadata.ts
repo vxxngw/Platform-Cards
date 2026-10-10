@@ -6,11 +6,12 @@ export const REWARD_DESCRIPTION = `${CARD_DESCRIPTION} Reward card, obtainable o
 export const REWARD_TIER = 'Reward'
 
 const HAS_EXT = /\.(webp|png|jpe?g|avif|gif)(\?.*)?$/i
+const TCGDEX_ASSETS = /^https:\/\/assets\.tcgdex\.net\//
 
-/** TCGdex `image` is a base URL; append `/high.webp` or `/low.webp` (spec v2 §2). Full image URLs are passed through. */
+/** TCGdex `image` is a base URL; append `/high.webp` or `/low.webp` (spec v2 §2). Any other image URL is passed through. */
 export function imageUrl(image: string | null | undefined, quality: 'high' | 'low' = 'high'): string | null {
   if (!image) return null
-  if (HAS_EXT.test(image)) return image
+  if (HAS_EXT.test(image) || !TCGDEX_ASSETS.test(image)) return image
   return `${image.replace(/\/+$/, '')}/${quality}.webp`
 }
 
@@ -51,6 +52,7 @@ export function buildCardMetadata(c: PoolCard, tierName: string): CardMetadata {
     name: c.name,
     description: tierName === REWARD_TIER ? REWARD_DESCRIPTION : CARD_DESCRIPTION,
     ...(img ? { image: img } : {}),
+    ...(img && c.imageFrom ? { imageFrom: c.imageFrom } : {}),
     attributes: [
       { trait_type: 'Set', value: c.setName },
       { trait_type: 'Card No.', value: c.localId },
@@ -99,6 +101,31 @@ export function buildMetadataFolder(args: {
     files[`${firstCardId + i}.json`] = buildCardMetadata(c, tierLabel(c.tier))
   })
   files[`${firstCardId + pool.length}.json`] = buildCardMetadata(reward, REWARD_TIER)
+  return files
+}
+
+/**
+ * A copy of the current metadata folder (ids 1..nextCardId-1) with new images for some tokens — used to add pictures
+ * to cards that were published without one. Refuses when any existing token's JSON is unknown, since pinning a
+ * placeholder would wipe that card's data.
+ */
+export function buildImageRepairFolder(args: {
+  nextCardId: number
+  existing: Record<number, unknown | null>
+  images: Record<number, { image: string; from: string }>
+}): Record<string, unknown> {
+  const { nextCardId, existing, images } = args
+  const files: Record<string, unknown> = {}
+  for (let id = 1; id < nextCardId; id++) {
+    const base = existing[id]
+    if (!base || typeof base !== 'object') throw new Error(`The metadata of card #${id} could not be loaded; reload the page and try again.`)
+    const fix = images[id]
+    const img = fix ? imageUrl(fix.image, 'high') : null
+    files[`${id}.json`] = img ? { ...(base as Record<string, unknown>), image: img, imageFrom: fix!.from } : base
+  }
+  for (const id of Object.keys(images).map(Number)) {
+    if (!(id >= 1 && id < nextCardId)) throw new Error(`Card #${id} does not exist yet.`)
+  }
   return files
 }
 
