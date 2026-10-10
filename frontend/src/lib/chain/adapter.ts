@@ -1,12 +1,13 @@
 // Implements the `tc/*` REST-style surface straight on the 3 contracts (viem); there is no server behind it.
 // tc.ts routes every `tc/*` call here.
 import { BaseError, ContractFunctionRevertedError, formatEther, getAddress, keccak256, parseEther, parseEventLogs, toBytes, type Hex } from 'viem'
-import type { Card, ChainEvent, CollectionSet, Config, Listing, Me, OpenRequest } from '../tc'
+import type { Card, ChainEvent, CollectionSet, Config, Listing, Me, OpenRequest, OpenStatus } from '../tc'
 import { cardCollectionAbi, marketplaceAbi, packSaleAbi } from './abi'
 import { ADDR, ADMIN_ADDRESS, ADMIN_ADDRESSES, isAdminAddr, CHAIN_ID, LOGS_RPC_URL, MAX_PACKS_PER_TX, REWARD_MAX_SUPPLY, RPC_URL } from './config'
 import { publicClient, readMany, walletClient } from './client'
 import { getCatalog, invalidateCatalog, knownRawMetadata } from './catalog'
-import { allEvents, blockTimes, byName, iso, sync, type Ev } from './events'
+import { allEvents, blockTimes, byName, headBlock, iso, sync, type Ev } from './events'
+import { commitmentOf, forgetSecret, loadSecret, newSecret, saveSecret } from './secrets'
 import { ensureChain } from './wallet'
 
 export type TxCtx = { onHash?: (hash: Hex) => void }
@@ -16,6 +17,7 @@ const C = ADDR.collection
 const P = ADDR.packSale
 const M = ADDR.market
 const ADMIN_ROLE = keccak256(toBytes('ADMIN_ROLE'))
+const REVEAL_WINDOW = 256 // PackSale.REVEAL_WINDOW: blockhash() reaches back 256 blocks
 
 // ---------- errors ----------
 const REVERTS: Record<string, string> = {
@@ -24,8 +26,12 @@ const REVERTS: Record<string, string> = {
   SoldOut: 'Not enough packs left.',
   NotOnSale: 'Packs of this set are not on sale.',
   NotEnoughPacks: 'You do not have enough unopened packs.',
-  NotStuck: 'The request is less than an hour old or was already handled.',
-  NotClaimable: 'The random number has not arrived yet, or these cards were already claimed.',
+  EmptyCommitment: 'The opening needs a commitment to a secret.',
+  NotRevealable: 'This opening was already revealed or its packs were returned.',
+  RevealTooEarly: 'Wait for the next block: its hash goes into your draw.',
+  RevealWindowClosed: 'The 256-block reveal window has closed. Return the packs and open them again.',
+  WrongSecret: 'The secret does not match this opening’s commitment.',
+  NotExpired: 'The reveal window is still open: reveal the cards instead.',
   AllCardsExhausted: 'Every card in this set has reached its max supply.',
   MaxSupplyExceeded: 'This card has reached its max supply.',
   InvalidSetSize: 'A set must have 8–12 cards.',
@@ -55,11 +61,8 @@ export function explain(e: unknown): string {
     if (rev) {
       const n = rev.data?.errorName
       if (n && REVERTS[n]) return REVERTS[n]
-      if (/0x79bfd401/.test(rev.message)) return 'PackSale is not a consumer of the VRF subscription yet (vrf.chain.link).'
       return rev.reason || n || rev.shortMessage
     }
-    if (/0x79bfd401/.test(e.message)) return 'PackSale is not a consumer of the VRF subscription yet (vrf.chain.link).'
-    if (/0x1f6a65b6/.test(e.message)) return 'The VRF subscription does not exist or the subscriptionId is wrong.'
     return e.shortMessage || e.message
   }
   return (e as Error)?.message || 'Unknown error'
@@ -141,7 +144,7 @@ async function getMe(addr: string | null): Promise<Me> {
     const cat = await getCatalog()
     const counts = await readMany<bigint>(cat.sets.map((s) => ({ address: P, abi: packSaleAbi, functionName: 'unopened', args: [a, BigInt(s.id)] })))
     unopened = cat.sets.map((s, i) => ({ setId: s.id, name: s.name, count: num(counts[i]) })).filter((u) => u.count > 0)
-    reqs = requestsOf(a).filter((r) => r.status === 'pending' || r.status === 'ready').map((r) => r.reqId)
+    reqs = requestsOf(a).filter((r) => r.status === 'pending' || r.status === 'ready' || r.status === 'expirable').map((r) => r.reqId)
   } catch (e) {
     console.warn('[me] sets/events unavailable:', explain(e))
   }
@@ -158,7 +161,7 @@ async function getDiagnostics(addr: string | null): Promise<Diagnostics> {
     connected: addr, expectedChainId: CHAIN_ID,
     adminAddressEnv: ADMIN_ADDRESS || null,
     adminAddresses: ADMIN_ADDRESSES,
-    rpc: RPC_URL ? RPC_URL.replace(/(\/v\d+\/|\/v2\/|key=)[^/?&]+/i, '$1…') : 'viem default public RPC', logsRpc: LOGS_RPC_URL ?? null,
+    rpc: RPC_URL.replace(/(\/v\d+\/|\/v2\/|key=)[^/?&]+/i, '$1…'), logsRpc: LOGS_RPC_URL,
     collection: C, packSale: P, marketplace: M,
   }
   const step = async (k: string, fn: () => Promise<unknown>) => { try { out[k] = await fn() } catch (e) { out[k] = { error: explain(e) } } }
@@ -218,22 +221,24 @@ async function getListings(query: URLSearchParams): Promise<Listing[]> {
 }
 
 function requestsOf(buyer?: string) {
-  const st = new Map<string, { ready?: any; fulfilled?: any; cancelled?: any }>()
+  const done = new Map<string, { fulfilled?: Ev; expired?: Ev }>()
   for (const e of allEvents()) {
     if (e.contract !== 'PackSale') continue
     const id = String(e.args.reqId)
-    if (e.name === 'RandomnessReady') st.set(id, { ...st.get(id), ready: e })
-    if (e.name === 'PackOpened') st.set(id, { ...st.get(id), fulfilled: e })
-    if (e.name === 'RequestCancelled') st.set(id, { ...st.get(id), cancelled: e })
+    if (e.name === 'PackOpened') done.set(id, { ...done.get(id), fulfilled: e })
+    if (e.name === 'RequestExpired') done.set(id, { ...done.get(id), expired: e })
   }
+  const head = headBlock()
   return byName('OpenRequested', 'PackSale')
     .filter((e) => !buyer || String(e.args.buyer).toLowerCase() === buyer.toLowerCase())
     .map((e) => {
       const id = String(e.args.reqId)
-      const d = st.get(id)
-      // pending → (VRF) ready → (claimPacks) fulfilled
-      const status = d?.fulfilled ? 'fulfilled' : d?.cancelled ? 'cancelled' : d?.ready ? 'ready' : 'pending'
-      return { reqId: id, ev: e, fulfilled: d?.fulfilled, cancelled: d?.cancelled, status }
+      const d = done.get(id)
+      // A transaction sent now lands in head + 1: a reveal needs it past commit + 1 and at most commit + 1 + REVEAL_WINDOW.
+      const revealDeadline = e.block + 1 + REVEAL_WINDOW
+      const status: OpenStatus = d?.fulfilled ? 'fulfilled' : d?.expired ? 'expired'
+        : head < e.block + 2 ? 'pending' : head < revealDeadline ? 'ready' : 'expirable'
+      return { reqId: id, ev: e, fulfilled: d?.fulfilled, status, revealDeadline, head }
     })
 }
 
@@ -242,9 +247,12 @@ async function toRequestView(r: ReturnType<typeof requestsOf>[number]): Promise<
   const blocks = [r.ev.block, r.fulfilled?.block].filter((x): x is number => x != null)
   const t = await blockTimes(blocks)
   const set = cat.sets.find((s) => s.id === num(r.ev.args.setId))
+  const commitment = r.ev.args.commitment as Hex
   return {
     reqId: r.reqId as unknown as number, reqHash: '0x' + BigInt(r.reqId).toString(16), buyer: r.ev.args.buyer, setId: num(r.ev.args.setId), setName: set?.name,
-    count: num(r.ev.args.qty), status: r.status, seedCommit: '', seed: null, txHash: r.ev.txHash, fulfillTx: r.fulfilled?.txHash ?? null,
+    count: num(r.ev.args.qty), status: r.status, seedCommit: commitment, seed: (r.fulfilled?.args.seed as Hex | undefined) ?? null,
+    commitBlock: r.ev.block, revealDeadline: r.revealDeadline, head: r.head, hasSecret: !!loadSecret(commitment),
+    txHash: r.ev.txHash, fulfillTx: r.fulfilled?.txHash ?? null,
     createdAt: iso(t.get(r.ev.block) ?? Date.now()), fulfilledAt: r.fulfilled ? iso(t.get(r.fulfilled.block) ?? Date.now()) : null,
     cards: (r.fulfilled?.args.cardIds ?? []).map((id: bigint) => cat.cards.get(num(id))).filter(Boolean) as Card[],
   }
@@ -291,8 +299,8 @@ async function getActivity(addr: string | null, limit: number): Promise<ChainEve
   const mine = (e: Ev) => {
     const x = e.args
     switch (e.name) {
-      case 'PacksPurchased': case 'OpenRequested': case 'RandomnessReady': case 'PackOpened': return is(x.buyer)
-      case 'RequestCancelled': return reqBuyer.get(String(x.reqId)) === a
+      case 'PacksPurchased': case 'OpenRequested': case 'PackOpened': return is(x.buyer)
+      case 'RequestExpired': return reqBuyer.get(String(x.reqId)) === a
       case 'Listed': return is(x.seller)
       case 'Sold': return is(x.buyer) || listings.get(num(x.listingId))?.seller === a
       case 'Cancelled': return listings.get(num(x.listingId))?.seller === a
@@ -363,12 +371,30 @@ async function post(path: string, body: any, addr: string | null, ctx?: TxCtx): 
     return { tx: hash }
   }
   if (path === 'tc/packs/open') {
-    const { hash, receipt } = await W(P, packSaleAbi, 'openPacks', [BigInt(body.setId), BigInt(body.qty)])
-    const log = parseEventLogs({ abi: packSaleAbi, logs: receipt.logs, eventName: 'OpenRequested' })[0]
-    return { tx: hash, reqId: String(log?.args.reqId) }
+    // Commit-reveal step 1. The secret is stored before the transaction goes out, so a closed tab cannot lose it.
+    const secret = newSecret()
+    const commitment = commitmentOf(secret, getAddress(me))
+    saveSecret(commitment, secret)
+    let sent = false
+    try {
+      const { hash, receipt } = await write({ onHash: (h) => { sent = true; ctx?.onHash?.(h) } }, me, P, packSaleAbi, 'openPacks', [BigInt(body.setId), BigInt(body.qty), commitment])
+      const log = parseEventLogs({ abi: packSaleAbi, logs: receipt.logs, eventName: 'OpenRequested' })[0]
+      return { tx: hash, reqId: String(log?.args.reqId) }
+    } catch (e) {
+      if (!sent) forgetSecret(commitment) // never broadcast: nothing to reveal later
+      throw e
+    }
   }
-  if (path === 'tc/packs/claim') return { tx: (await W(P, packSaleAbi, 'claimPacks', [BigInt(body.reqId)])).hash }
-  if (path === 'tc/packs/cancel') return { tx: (await W(P, packSaleAbi, 'cancelStuckRequest', [BigInt(body.reqId)])).hash }
+  if (path === 'tc/packs/reveal') {
+    // Step 2: the secret, mixed on chain with the hash of the block after the commit, decides the cards.
+    const [, , , , commitment] = await rd<readonly [Hex, bigint, number, bigint, Hex, number]>(P, packSaleAbi, 'requests', [BigInt(body.reqId)])
+    const secret = loadSecret(commitment)
+    if (!secret) throw new Error('The secret of this opening is not in this browser. Reveal it where you opened it, or return the packs once the reveal window closes.')
+    const { hash } = await W(P, packSaleAbi, 'revealPacks', [BigInt(body.reqId), secret])
+    forgetSecret(commitment)
+    return { tx: hash }
+  }
+  if (path === 'tc/packs/expire') return { tx: (await W(P, packSaleAbi, 'expireRequest', [BigInt(body.reqId)])).hash }
   if (path === 'tc/approve') return { tx: (await W(C, cardCollectionAbi, 'setApprovalForAll', [M, body.approved !== false])).hash }
   if (path === 'tc/listings') {
     return { tx: (await W(M, marketplaceAbi, 'listCard', [BigInt(body.cardId), BigInt(body.amount), parseEther(String(body.price))])).hash }

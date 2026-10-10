@@ -17,7 +17,7 @@ export default function Gacha() {
   return (
     <div className="space-y-12">
       <PageHero kicker="The Gacha Hall" title="Choose Your Fate"
-        sub="Choose a royal set, buy sealed packs and break the seal on the spot. Every draw is decided by Chainlink VRF and minted straight into your wallet.">
+        sub="Choose a royal set, buy sealed packs and break the seal on the spot. Every draw is decided on chain by commit-reveal and minted straight into your wallet.">
         {sealed > 0 && (
           <Frame className="flex items-center gap-4 px-5 py-4">
             <div>
@@ -34,7 +34,7 @@ export default function Gacha() {
         {sets.isLoading ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-[520px] rounded-xl" />)}</div>
         ) : sets.error ? (
-          <EmptyState title="The shelf is out of reach" body="Packs could not be read from Sepolia right now. Try again shortly." />
+          <EmptyState title="The shelf is out of reach" body="Packs could not be read from the chain right now. Check that the local nodes are running, then try again." />
         ) : list.length === 0 ? (
           <EmptyState title="No packs forged yet" body="An admin creates sets and packs with the Pack Builder." />
         ) : (

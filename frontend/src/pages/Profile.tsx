@@ -6,7 +6,6 @@ import { EmptyState, Frame, Stat } from '@/components/royal/Ornaments'
 import { connectNewWallet } from '@/components/tc/Shell'
 import { sendTx, fmtEth, short, useWalletStore } from '@/lib/tc'
 import { addrUrl } from '@/lib/chain/config'
-import { useWalletKind } from '@/lib/chain/wallet'
 import { useCollection, useMe, useRefresh } from '@/lib/hooks'
 import { Link } from '@/lib/router'
 import { cn } from '@/lib/utils'
@@ -34,13 +33,12 @@ export default function Profile({ tab }: { tab: ProfileTab }) {
   const { current } = useWalletStore()
   const me = useMe()
   const col = useCollection()
-  const kind = useWalletKind()
   const refresh = useRefresh()
   const [busy, setBusy] = useState(false)
 
   if (!current) {
     return (
-      <EmptyState title="Your vault is sealed" body="Connect a wallet (or sign in with email) to see your cards, sealed packs and activity."
+      <EmptyState title="Your vault is sealed" body="Connect MetaMask to see your cards, sealed packs and activity."
         action={<Button onClick={() => connectNewWallet().then(refresh).catch(() => {})}>Connect wallet</Button>} />
     )
   }
@@ -74,8 +72,8 @@ export default function Profile({ tab }: { tab: ProfileTab }) {
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-fg-subtle">
               <span className="font-mono">{short(current, 10)}</span>
               <button className="text-fg-muted hover:text-gold-bright" onClick={() => { navigator.clipboard?.writeText(current); toast('Address copied') }} aria-label="Copy address"><Copy className="size-3.5" /></button>
-              {addrUrl(current) && <a href={addrUrl(current)} target="_blank" rel="noreferrer" className="text-fg-muted hover:text-gold-bright" aria-label="View on Etherscan"><ExternalLink className="size-3.5" /></a>}
-              <span className="rounded-sm border border-gold/30 px-1.5 py-0.5 font-display text-[9px] font-bold tracking-[0.16em] text-gold">{kind === 'privy' ? 'EMAIL WALLET' : 'EXTERNAL WALLET'}</span>
+              {addrUrl(current) && <a href={addrUrl(current)} target="_blank" rel="noreferrer" className="text-fg-muted hover:text-gold-bright" aria-label="View in explorer"><ExternalLink className="size-3.5" /></a>}
+              <span className="rounded-sm border border-gold/30 px-1.5 py-0.5 font-display text-[9px] font-bold tracking-[0.16em] text-gold">METAMASK</span>
             </div>
           </div>
           {pending > 0 && (

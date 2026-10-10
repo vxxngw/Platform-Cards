@@ -158,7 +158,7 @@ export default function CollectionTab() {
   const sets = (col.data || []).filter((s) => s.owned > 0 || s.cards.some((c) => c.balance > 0))
 
   if (col.isLoading) return <Skeleton className="h-72 rounded-xl" />
-  if (col.error) return <EmptyState title="The vault could not be read" body="Your cards could not be loaded from Sepolia right now. Try again shortly." />
+  if (col.error) return <EmptyState title="The vault could not be read" body="Your cards could not be loaded from the chain right now. Check that the local nodes are running, then try again." />
   if (totalCards === 0) {
     return (
       <EmptyState title="No cards yet" body="Open a pack in the Gacha hall or pick up singles at the Marketplace."

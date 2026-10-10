@@ -24,7 +24,7 @@ export function EventRow({ e, me }: { e: ChainEvent; me?: string | null }) {
           <span>{e.name.toUpperCase()}</span>
           <span>·</span>
           <span className="tracking-normal">{timeAgo(e.at)}</span>
-          {url && <><span>·</span><a href={url} target="_blank" rel="noreferrer" className="tracking-normal text-gold/80 hover:text-gold-bright">Etherscan ↗</a></>}
+          {url && <><span>·</span><a href={url} target="_blank" rel="noreferrer" className="tracking-normal text-gold/80 hover:text-gold-bright">Explorer ↗</a></>}
         </div>
       </div>
     </div>

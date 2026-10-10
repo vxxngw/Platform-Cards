@@ -4,3 +4,4 @@ artifacts
 coverage
 .env
 metadata
+localnet/data

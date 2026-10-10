@@ -11,7 +11,7 @@ export type Ev = { contract: ContractName; name: string; args: Record<string, an
 
 const SOURCES: { contract: ContractName; address: Hex; abi: readonly any[]; names: string[] }[] = [
   { contract: 'CardCollection', address: ADDR.collection, abi: cardCollectionAbi, names: ['SetCreated', 'SetRedeemed', 'ApprovalForAll', 'Paused', 'Unpaused'] },
-  { contract: 'PackSale', address: ADDR.packSale, abi: packSaleAbi, names: ['PackConfigured', 'PacksPurchased', 'OpenRequested', 'RandomnessReady', 'PackOpened', 'RequestCancelled', 'Withdrawn'] },
+  { contract: 'PackSale', address: ADDR.packSale, abi: packSaleAbi, names: ['PackConfigured', 'PacksPurchased', 'OpenRequested', 'PackOpened', 'RequestExpired', 'Withdrawn'] },
   { contract: 'Marketplace', address: ADDR.market, abi: marketplaceAbi, names: ['Listed', 'Sold', 'Cancelled', 'Withdrawn', 'FeeUpdated'] },
 ]
 
@@ -70,6 +70,8 @@ export function sync(): Promise<void> {
 }
 
 export function allEvents(): Ev[] { return events }
+/** Chain head as of the last sync (0 before the first one). */
+export const headBlock = () => Number(lastBlock ?? 0n)
 export const byName = (name: string, contract?: ContractName) => events.filter((e) => e.name === name && (!contract || e.contract === contract))
 
 // ---------- block timestamps ----------

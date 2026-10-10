@@ -12,6 +12,7 @@ import { http, fmtEth, short, timeAgo, RARITY_COLOR, RARITY_NAMES, type Card } f
 import type { Pull } from '@/lib/chain/adapter'
 import { useMe, useSets } from '@/lib/hooks'
 import { BRAND } from '@/lib/brand'
+import { CHAIN_NAME } from '@/lib/chain/config'
 
 type Stats = { packsSold: number; sales: number; volume: string; activeListings: number; wallets: number }
 
@@ -39,8 +40,8 @@ function HeroCards({ cards }: { cards: Card[] }) {
 }
 
 const STEPS = [
-  { n: 'I', icon: Crown, title: 'Buy a Pack', body: 'Buy sealed packs with Sepolia ETH. Each holds five cards from one royal set.' },
-  { n: 'II', icon: Wand2, title: 'Break the Seal', body: 'Chainlink VRF draws your cards. The fifth is always Rare or better.' },
+  { n: 'I', icon: Crown, title: 'Buy a Pack', body: 'Buy sealed packs with local ETH. Each holds five cards from one royal set.' },
+  { n: 'II', icon: Wand2, title: 'Break the Seal', body: 'Commit a secret, reveal it a block later: the chain draws your cards. The fifth is always Rare or better.' },
   { n: 'III', icon: Gem, title: 'Complete the Set', body: 'Collect all eleven cards, then burn one of each to forge the reward card.' },
   { n: 'IV', icon: Store, title: 'Trade at the Bazaar', body: 'List duplicates or whole sets on the Marketplace. Sellers pay a 2.5% fee.' },
 ]
@@ -65,7 +66,7 @@ export default function Home() {
       {/* Hero */}
       <section className="relative grid items-center gap-10 pt-4 lg:grid-cols-[1.15fr_1fr]">
         <div>
-          <div className="kicker mb-4 flex items-center gap-3"><span className="h-px w-10 bg-gold/60" />Sepolia Testnet · Chainlink VRF</div>
+          <div className="kicker mb-4 flex items-center gap-3"><span className="h-px w-10 bg-gold/60" />{CHAIN_NAME} · Private chain · Commit-reveal draws</div>
           <h1 className="text-4xl font-black leading-[1.05] text-ivory sm:text-5xl lg:text-6xl">
             Forge your <span className="gold-shimmer">legend</span>,<br />one sealed pack at a time.
           </h1>
@@ -90,7 +91,7 @@ export default function Home() {
 
       {/* Featured packs */}
       <section className="space-y-6">
-        <SectionHeader kicker="The Royal Treasury" title="Featured Packs" sub="Sealed boosters from real Pokémon TCG sets, minted as testnet cards when you open them."
+        <SectionHeader kicker="The Royal Treasury" title="Featured Packs" sub="Sealed boosters from real Pokémon TCG sets, minted on chain when you open them."
           action={<Button asChild variant="outline" size="sm"><a href="#/gacha">All packs <ArrowRight /></a></Button>} />
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {sets.isLoading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-[520px] rounded-xl" />)}
@@ -98,7 +99,7 @@ export default function Home() {
           {sets.data && sets.data.length === 0 && (
             <Frame className="col-span-full px-6 py-12 text-center text-fg-subtle">No set has been forged yet. An admin can create one with the Pack Builder.</Frame>
           )}
-          {sets.error && <Frame className="col-span-full px-6 py-12 text-center text-fg-subtle">The treasury could not be read from Sepolia right now. Try again shortly.</Frame>}
+          {sets.error && <Frame className="col-span-full px-6 py-12 text-center text-fg-subtle">The treasury could not be read from the chain right now. Check that the local nodes are running, then try again.</Frame>}
         </div>
       </section>
 

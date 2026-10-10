@@ -122,7 +122,7 @@ export default function Market({ initialSet }: { initialSet?: string }) {
       {q.isLoading ? (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-80 rounded-xl" />)}</div>
       ) : q.error ? (
-        <EmptyState title="The bazaar is out of reach" body="Listings could not be read from Sepolia right now. Try again shortly." />
+        <EmptyState title="The bazaar is out of reach" body="Listings could not be read from the chain right now. Check that the local nodes are running, then try again." />
       ) : list.length === 0 ? (
         <EmptyState title="No listings match" body="Open packs, then list your duplicates from Profile → Collection."
           action={<><Button asChild variant="outline"><a href="#/gacha">Open packs</a></Button><Button asChild><a href="#/profile?tab=collection">List my cards</a></Button></>} />

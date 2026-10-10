@@ -1,7 +1,7 @@
 const { expect } = require("chai");
-const { time } = require("@nomicfoundation/hardhat-network-helpers");
+const { mine, takeSnapshot } = require("@nomicfoundation/hardhat-network-helpers");
 const { ethers } = require("hardhat");
-const { seeded, openWith, requestOpen, PRICE, RARITIES } = require("./helpers");
+const { seeded, openWith, requestOpen, reveal, commitmentOf, randomSecret, PRICE, RARITIES } = require("./helpers");
 
 describe("PackSale", () => {
   describe("buyPacks", () => {
@@ -28,12 +28,31 @@ describe("PackSale", () => {
     });
   });
 
-  describe("openPacks", () => {
-    it("reverts without enough unopened packs", async () => {
+  describe("openPacks (commit)", () => {
+    it("reverts without enough unopened packs, on a bad quantity or an empty commitment", async () => {
       const f = await seeded();
-      await expect(f.packSale.connect(f.alice).openPacks(1, 1)).to.be.revertedWithCustomError(f.packSale, "NotEnoughPacks");
+      const c = commitmentOf(randomSecret(), f.alice.address);
+      await expect(f.packSale.connect(f.alice).openPacks(1, 1, c)).to.be.revertedWithCustomError(f.packSale, "NotEnoughPacks");
+      await f.packSale.connect(f.alice).buyPacks(1, 2, { value: PRICE * 2n });
+      await expect(f.packSale.connect(f.alice).openPacks(1, 0, c)).to.be.revertedWithCustomError(f.packSale, "BadQuantity");
+      await expect(f.packSale.connect(f.alice).openPacks(1, 1, ethers.ZeroHash)).to.be.revertedWithCustomError(f.packSale, "EmptyCommitment");
     });
 
+    it("locks the packs, numbers requests from 1 and stores the commitment", async () => {
+      const f = await seeded();
+      const secret = randomSecret();
+      await f.packSale.connect(f.alice).buyPacks(1, 3, { value: PRICE * 3n });
+      const c = commitmentOf(secret, f.alice.address);
+      await expect(f.packSale.connect(f.alice).openPacks(1, 2, c))
+        .to.emit(f.packSale, "OpenRequested").withArgs(1, f.alice.address, 1, 2, c);
+      expect(await f.packSale.unopened(f.alice.address, 1)).to.equal(1n);
+      const r = await f.packSale.requests(1);
+      expect(r.commitment).to.equal(c);
+      expect(r.status).to.equal(1n); // Committed
+    });
+  });
+
+  describe("revealPacks", () => {
     it("mints 5×qty cards with ≥1 Rare+ per pack", async () => {
       const f = await seeded();
       for (let t = 0; t < 20; t++) {
@@ -48,33 +67,57 @@ describe("PackSale", () => {
       expect(progress.reduce((a, b) => a + b, 0n)).to.equal(200n);
     });
 
-    it("VRF callback is cheap (<80k) and 10-pack claim is a normal user tx", async () => {
+    it("10-pack reveal is a normal user tx", async () => {
       const f = await seeded();
-      const { gasUsed, ids, fulfillGas } = await openWith(f, f.alice, 10);
-      console.log("      fulfill (VRF mock tx) gas:", fulfillGas.toString(), "| claimPacks(10 packs) gas:", gasUsed.toString());
+      const { gasUsed, ids } = await openWith(f, f.alice, 10);
+      console.log("      revealPacks(10 packs) gas:", gasUsed.toString());
       expect(ids.length).to.equal(50);
-      expect(fulfillGas).to.be.lessThan(BigInt(await f.packSale.callbackGasLimit()) + 120_000n); // callback + coordinator overhead
       expect(gasUsed).to.be.lessThan(1_500_000n);
     });
 
-    it("claimPacks: not before randomness, only once, anyone can trigger but cards go to buyer", async () => {
+    it("not in the block right after the commit, only with the right secret, only once; anyone may reveal but cards go to the buyer", async () => {
       const f = await seeded();
-      const reqId = await requestOpen(f, f.alice, 1);
-      await expect(f.packSale.claimPacks(reqId)).to.be.revertedWithCustomError(f.packSale, "NotClaimable");
-      await f.mock.fulfillRandomWordsWithOverride(reqId, await f.packSale.getAddress(), [12345n]);
-      await expect(f.packSale.connect(f.carol).claimPacks(reqId)).to.emit(f.packSale, "PackOpened");
-      const total = (await f.collection.getSetProgress(f.alice.address, 1)).reduce((a, b) => a + b, 0n);
-      expect(total).to.equal(5n);
+      const req = await requestOpen(f, f.alice, 1);
+      // Hardhat mines one block per tx: this reveal lands in commitBlock + 1, whose hash is not known yet
+      await expect(f.packSale.connect(f.alice).revealPacks(req.reqId, req.secret)).to.be.revertedWithCustomError(f.packSale, "RevealTooEarly");
+      await mine(1);
+      await expect(f.packSale.connect(f.alice).revealPacks(req.reqId, randomSecret())).to.be.revertedWithCustomError(f.packSale, "WrongSecret");
+      await expect(f.packSale.connect(f.carol).revealPacks(req.reqId, req.secret)).to.emit(f.packSale, "PackOpened");
+      expect((await f.collection.getSetProgress(f.alice.address, 1)).reduce((a, b) => a + b, 0n)).to.equal(5n);
       expect((await f.collection.getSetProgress(f.carol.address, 1)).reduce((a, b) => a + b, 0n)).to.equal(0n);
-      await expect(f.packSale.claimPacks(reqId)).to.be.revertedWithCustomError(f.packSale, "NotClaimable");
-      await expect(f.packSale.claimPacks(999)).to.be.revertedWithCustomError(f.packSale, "NotClaimable");
+      await expect(f.packSale.revealPacks(req.reqId, req.secret)).to.be.revertedWithCustomError(f.packSale, "NotRevealable");
+      await expect(f.packSale.revealPacks(999, req.secret)).to.be.revertedWithCustomError(f.packSale, "NotRevealable");
     });
 
-    it("same random word always yields the same cards (deterministic, verifiable)", async () => {
-      const a = await seeded(); const b = await seeded();
-      const r1 = await openWith(a, a.alice, 3, 777n);
-      const r2 = await openWith(b, b.alice, 3, 777n);
-      expect(r1.ids).to.deep.equal(r2.ids);
+    it("a commitment is bound to its buyer: the same secret committed by someone else does not open their request", async () => {
+      const f = await seeded();
+      const secret = randomSecret();
+      await f.packSale.connect(f.bob).buyPacks(1, 1, { value: PRICE });
+      const rc = await (await f.packSale.connect(f.bob).openPacks(1, 1, commitmentOf(secret, f.alice.address))).wait();
+      const reqId = f.packSale.interface.parseLog(rc.logs[0]).args.reqId;
+      await mine(1);
+      await expect(f.packSale.connect(f.bob).revealPacks(reqId, secret)).to.be.revertedWithCustomError(f.packSale, "WrongSecret");
+    });
+
+    it("seed = keccak256(secret, blockhash(commitBlock + 1), reqId), so anyone can verify a draw", async () => {
+      const f = await seeded();
+      const req = await requestOpen(f, f.alice, 1);
+      const { seed } = await reveal(f, req, f.alice);
+      const anchor = await ethers.provider.getBlock(req.commitBlock + 1);
+      const expected = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["bytes32", "bytes32", "uint256"], [req.secret, anchor.hash, req.reqId]));
+      expect(seed).to.equal(expected);
+    });
+
+    it("same secret, same anchor block, same request → same cards (deterministic)", async () => {
+      const f = await seeded();
+      const req = await requestOpen(f, f.alice, 3);
+      await mine(1); // the anchor block (commitBlock + 1) must exist before the snapshot, or the replay would mine a different one
+      const snap = await takeSnapshot();
+      const first = await reveal(f, req, f.alice);
+      await snap.restore();
+      const again = await reveal(f, req, f.alice);
+      expect(again.ids).to.deep.equal(first.ids);
+      expect(again.seed).to.equal(first.seed);
     });
 
     it("distribution over 10,000 simulated draws is within 2% of config", async function () {
@@ -101,25 +144,41 @@ describe("PackSale", () => {
     });
   });
 
-  describe("stuck requests", () => {
-    it("cancelStuckRequest refunds after 1h only; a late VRF answer is then ignored", async () => {
+  describe("reveal window and refunds (spec §6)", () => {
+    it("reveal works up to commitBlock + 257, then the window is closed", async () => {
       const f = await seeded();
-      const reqId = await requestOpen(f, f.alice, 2);
-      await expect(f.packSale.cancelStuckRequest(reqId)).to.be.revertedWithCustomError(f.packSale, "NotStuck");
-      await time.increase(3601);
-      await expect(f.packSale.cancelStuckRequest(reqId)).to.emit(f.packSale, "RequestCancelled");
-      expect(await f.packSale.unopened(f.alice.address, 1)).to.equal(2n);
-      await expect(f.packSale.cancelStuckRequest(reqId)).to.be.revertedWithCustomError(f.packSale, "NotStuck");
-      await f.mock.fulfillRandomWordsWithOverride(reqId, await f.packSale.getAddress(), [1n]); // late answer: no-op
-      await expect(f.packSale.claimPacks(reqId)).to.be.revertedWithCustomError(f.packSale, "NotClaimable");
+      const a = await requestOpen(f, f.alice, 1);
+      await mine(256); // the reveal lands in commitBlock + 257: blockhash(commitBlock + 1) is still readable
+      await expect(f.packSale.connect(f.alice).revealPacks(a.reqId, a.secret)).to.emit(f.packSale, "PackOpened");
+
+      const b = await requestOpen(f, f.alice, 1);
+      await mine(257); // lands in commitBlock + 258
+      await expect(f.packSale.connect(f.alice).revealPacks(b.reqId, b.secret)).to.be.revertedWithCustomError(f.packSale, "RevealWindowClosed");
     });
 
-    it("cannot cancel once randomness is ready (claim instead)", async () => {
+    it("expireRequest refunds the packs only after the window, once, and the request can no longer be revealed", async () => {
       const f = await seeded();
-      const reqId = await requestOpen(f, f.alice, 1);
-      await f.mock.fulfillRandomWordsWithOverride(reqId, await f.packSale.getAddress(), [1n]);
-      await time.increase(3601);
-      await expect(f.packSale.cancelStuckRequest(reqId)).to.be.revertedWithCustomError(f.packSale, "NotStuck");
+      const req = await requestOpen(f, f.alice, 2);
+      await mine(256); // a tx now lands in commitBlock + 257, the last block a reveal is still possible
+      await expect(f.packSale.connect(f.carol).expireRequest(req.reqId)).to.be.revertedWithCustomError(f.packSale, "NotExpired");
+      await mine(1);
+      await expect(f.packSale.connect(f.carol).expireRequest(req.reqId)).to.emit(f.packSale, "RequestExpired").withArgs(req.reqId);
+      expect(await f.packSale.unopened(f.alice.address, 1)).to.equal(2n);
+      await expect(f.packSale.expireRequest(req.reqId)).to.be.revertedWithCustomError(f.packSale, "NotExpired");
+      await expect(f.packSale.connect(f.alice).revealPacks(req.reqId, req.secret)).to.be.revertedWithCustomError(f.packSale, "NotRevealable");
+    });
+
+    it("a revealed request cannot be refunded; pausing blocks reveals but never refunds", async () => {
+      const f = await seeded();
+      const done = await openWith(f, f.alice, 1);
+      const stuck = await requestOpen(f, f.alice, 1);
+      await f.packSale.pause();
+      await mine(1);
+      await expect(f.packSale.connect(f.alice).revealPacks(stuck.reqId, stuck.secret)).to.be.revertedWithCustomError(f.packSale, "EnforcedPause");
+      await mine(257);
+      await expect(f.packSale.expireRequest(done.reqId)).to.be.revertedWithCustomError(f.packSale, "NotExpired");
+      await expect(f.packSale.expireRequest(stuck.reqId)).to.emit(f.packSale, "RequestExpired");
+      expect(await f.packSale.unopened(f.alice.address, 1)).to.equal(1n);
     });
   });
 

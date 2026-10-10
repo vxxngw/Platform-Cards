@@ -41,7 +41,7 @@ export function PublishPanel({ draft, onChange, wallet, ctx, pin, onPublished }:
     })
     base.push({
       id: 'server', ok: !!pin?.authConfigured && pin.mode === 'pinata', label: '/api/pin ready (PINATA_JWT and admin check configured)',
-      hint: pin === undefined ? 'checking…' : pin === null ? '/api/pin is unreachable' : !pin.authConfigured ? 'set COLLECTION_ADDRESS (or ADMIN_ADDRESSES) in the Vercel Environment Variables' : 'set PINATA_JWT in the Vercel Environment Variables',
+      hint: pin === undefined ? 'checking…' : pin === null ? '/api/pin is unreachable' : !pin.authConfigured ? 'run npm run deploy:local (it writes COLLECTION_ADDRESS to frontend/.env.local), then restart npm run dev' : 'add PINATA_JWT to frontend/.env, then restart npm run dev',
     })
     if (missing.length) base.push({ id: 'ack', ok: ack, label: `Accept placeholder metadata for ${missing.length} older card(s) that could not be loaded`, hint: `id ${missing.slice(0, 8).join(', ')}${missing.length > 8 ? '…' : ''}` })
     return base
@@ -139,7 +139,7 @@ export function PublishPanel({ draft, onChange, wallet, ctx, pin, onPublished }:
         <p className={`rounded px-2 py-1.5 text-[11px] ${pinMode === 'pinata' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'}`}>
           {pinMode === 'pinata'
             ? 'Metadata will be pinned to IPFS through Pinata (the JWT stays on the server).'
-            : 'The server has no PINATA_JWT, so metadata cannot be pinned to IPFS. Set PINATA_JWT in the Vercel Environment Variables and redeploy.'}
+            : 'The server has no PINATA_JWT, so metadata cannot be pinned to IPFS. Create a Pinata API key (JWT), put PINATA_JWT=… in frontend/.env, then restart npm run dev.'}
         </p>
       )}
 

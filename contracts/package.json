@@ -5,10 +5,20 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "export-abi": "node scripts/export-abi.js",
-    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia"
+    "chain:setup": "node localnet/setup.js",
+    "chain:reset": "node localnet/setup.js --reset",
+    "chain:node1": "node localnet/node.js 1",
+    "chain:node2": "node localnet/node.js 2",
+    "chain:status": "node localnet/status.js",
+    "deploy:local": "hardhat run scripts/deploy.js --network localnet",
+    "seed:local": "hardhat run scripts/seed.js --network localnet",
+    "seed-pokemon:local": "hardhat run scripts/seed-pokemon.js --network localnet",
+    "fund": "node scripts/fund.js",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "smoke:local": "hardhat run scripts/smoke.js --network localnet",
+    "demo:dt3": "hardhat run scripts/demo-dt3.js --network localnet"
   },
   "devDependencies": {
-    "@chainlink/contracts": "^1.2.0",
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.2",
     "@nomicfoundation/hardhat-ethers": "3",
     "@nomicfoundation/hardhat-network-helpers": "^1.1.2",

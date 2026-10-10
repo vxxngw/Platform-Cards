@@ -66,7 +66,7 @@ function makeIsAdmin(env = process.env, makeClient = (url) => createPublicClient
   const list = String(env.ADMIN_ADDRESSES || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
   if (list.length) return async (addr) => list.includes(String(addr).toLowerCase())
   if (env.COLLECTION_ADDRESS) {
-    const client = makeClient(env.CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com')
+    const client = makeClient(env.CHAIN_RPC_URL || 'http://127.0.0.1:8546') // node 2 of the local chain
     return async (addr) => client.readContract({ address: env.COLLECTION_ADDRESS, abi: HAS_ROLE_ABI, functionName: 'hasRole', args: [ADMIN_ROLE, addr] })
   }
   return null

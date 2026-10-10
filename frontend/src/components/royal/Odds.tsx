@@ -20,7 +20,7 @@ export function OddsNotes() {
     <ul className="space-y-1.5 text-sm text-fg-subtle">
       <li className="flex gap-2"><span className="text-gold">◆</span>The fifth card of every pack is drawn from the Rare+ table, so each pack holds at least one Rare.</li>
       <li className="flex gap-2"><span className="text-gold">◆</span>When a card reaches its max supply, the draw falls to the next tier below.</li>
-      <li className="flex gap-2"><span className="text-gold">◆</span>Randomness comes from Chainlink VRF; every opening links its request and transactions on Etherscan.</li>
+      <li className="flex gap-2"><span className="text-gold">◆</span>Randomness is commit-reveal: your secret is mixed with the hash of the block after your commit, so neither you nor the block producer can know the cards in advance. Every opening records its seed on chain.</li>
     </ul>
   )
 }

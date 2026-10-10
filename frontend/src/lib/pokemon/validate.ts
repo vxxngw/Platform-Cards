@@ -53,7 +53,7 @@ export function validateDraft(d: DraftInput): CheckItem[] {
       label: 'Valid set name, pack price, pack count and reward supply',
     },
     {
-      id: 'wallet', ok: d.connected && d.isAdmin && d.rightNetwork, label: 'Admin wallet connected on Sepolia',
+      id: 'wallet', ok: d.connected && d.isAdmin && d.rightNetwork, label: 'Admin wallet connected on the local chain',
       hint: !d.connected ? 'No wallet connected' : !d.isAdmin ? 'This wallet lacks ADMIN_ROLE' : !d.rightNetwork ? 'Wrong network' : undefined,
     },
   ]

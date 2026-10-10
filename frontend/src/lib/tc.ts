@@ -22,10 +22,19 @@ export type PackInfo = { price: string; remaining: number; total: number; onSale
 export type CardSet = { id: number; name: string; description: string | null; rewardCardId: number; baseUri: string; pack: PackInfo; cards: Card[]; source?: { setName: string; tcgdexSetId?: string; lang?: string } }
 export type Wallet = { address: string; label: string | null; isAdmin: boolean; marketApproved: boolean; balance: string; pending: string }
 export type Me = { wallet: Wallet | null; unopened?: { setId: number; name: string; count: number }[]; pendingRequests?: (number | string)[] }
-export type Config = { adminAddress: string; paused: boolean; feeBps: number; packRevenue: string; marketFees: string; maxPacksPerTx: number }
+export type Config = { adminAddress: string; adminAddresses: string[]; paused: boolean; feeBps: number; packRevenue: string; marketFees: string; maxPacksPerTx: number }
+/**
+ * Commit-reveal opening (PackSale): pending = the anchor block (commit + 1) is not mined yet · ready = can be revealed ·
+ * expirable = the 256-block reveal window closed, the packs can be returned · fulfilled = cards minted · expired = packs returned.
+ */
+export type OpenStatus = 'pending' | 'ready' | 'expirable' | 'fulfilled' | 'expired'
 export type OpenRequest = {
-  reqId: number | string; reqHash: string; buyer: string; setId: number; setName?: string; count: number; status: string
-  seedCommit: string; seed: string | null; txHash: string; fulfillTx: string | null; createdAt: string; fulfilledAt: string | null; cards: Card[]
+  reqId: number | string; reqHash: string; buyer: string; setId: number; setName?: string; count: number; status: OpenStatus
+  /** commitment = keccak256(secret, buyer) and, once revealed, the seed of the draw */
+  seedCommit: string; seed: string | null
+  /** block of the commit, last block a reveal can land in, chain head at read time; whether this browser holds the secret */
+  commitBlock: number; revealDeadline: number; head: number; hasSecret: boolean
+  txHash: string; fulfillTx: string | null; createdAt: string; fulfilledAt: string | null; cards: Card[]
 }
 export type Listing = {
   listingId: number; seller: string; isBundle: boolean; setId: number; setName: string; price: string; priceWei: string; createdAt: string
@@ -84,7 +93,7 @@ export async function http<T>(path: string, init?: RequestInit & { json?: unknow
   return j as T
 }
 
-// Wallet flow: awaiting signature (Privy or external wallet) → confirming (hash + Etherscan link) → confirmed / failed.
+// Wallet flow: awaiting signature (MetaMask) → confirming (hash + explorer link) → confirmed / failed.
 export async function sendTx<T extends { tx?: string }>(label: string, path: string, json: unknown = {}): Promise<T> {
   const id = toast.loading(label, { description: 'Confirm the transaction in your wallet…' })
   try {
@@ -93,14 +102,14 @@ export async function sendTx<T extends { tx?: string }>(label: string, path: str
       ctx: {
         onHash: (h) => toast.loading(label, {
           id, description: `Waiting for confirmation… ${short(h, 10)}`,
-          action: txUrl(h) ? { label: 'Etherscan', onClick: () => window.open(txUrl(h), '_blank') } : undefined,
+          action: txUrl(h) ? { label: 'Explorer', onClick: () => window.open(txUrl(h), '_blank') } : undefined,
         }),
       },
     })
     const u = out.tx ? txUrl(out.tx) : ''
     toast.success(`${label} — confirmed`, {
       id, description: out.tx ? `tx ${short(out.tx, 10)}` : undefined,
-      action: u ? { label: 'Etherscan', onClick: () => window.open(u, '_blank') } : undefined,
+      action: u ? { label: 'Explorer', onClick: () => window.open(u, '_blank') } : undefined,
     })
     return out
   } catch (e) {

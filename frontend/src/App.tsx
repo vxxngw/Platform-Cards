@@ -1,6 +1,5 @@
 import { Toaster } from 'sonner'
 import { Shell } from '@/components/tc/Shell'
-import { WalletProvider } from '@/components/tc/PrivyWallet'
 import { useRoute } from '@/lib/router'
 import Home from '@/pages/Home'
 import Gacha from '@/pages/Gacha'
@@ -33,9 +32,7 @@ export default function App() {
 
   return (
     <>
-      <WalletProvider>
-        <Shell path={path}>{page}</Shell>
-      </WalletProvider>
+      <Shell path={path}>{page}</Shell>
       <Toaster theme="dark" position="bottom-right" richColors closeButton toastOptions={{ className: 'font-sans' }} />
     </>
   )

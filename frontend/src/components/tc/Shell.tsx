@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { fmtUsd } from '@/lib/tc'
 import { ChainWalletMenu } from './ChainWallet'
 import { connectWallet } from '@/lib/chain/wallet'
-import { ADDR, ADMIN_ADDRESSES, isAdminAddr, addrUrl } from '@/lib/chain/config'
+import { ADDR, ADMIN_ADDRESSES, CHAIN_NAME, isAdminAddr, addrUrl } from '@/lib/chain/config'
 import { useWalletStore } from '@/lib/tc'
 
 const ZERO = /^0x0{40}$/i
@@ -14,7 +14,7 @@ import { BRAND } from '@/lib/brand'
 import { BrandMark, Divider } from '@/components/royal/Ornaments'
 import { cn } from '@/lib/utils'
 
-/** Opens Privy's login / connect-wallet modal. The wallet store updates once the user finishes in the modal. */
+/** Opens MetaMask's connect prompt, then makes sure it is on the local chain. */
 export async function connectNewWallet(): Promise<void> {
   await connectWallet()
 }
@@ -58,7 +58,7 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
           </nav>
           <div className="ml-auto flex items-center gap-3">
             <div className="hidden items-center gap-3 font-display text-[11px] tracking-wider text-fg-muted lg:flex">
-              <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-emerald shadow-[0_0_6px_#2f9e74]" />Sepolia</span>
+              <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-emerald shadow-[0_0_6px_#2f9e74]" />{CHAIN_NAME}</span>
               {ethUsd && <span>ETH {fmtUsd(ethUsd)}</span>}
             </div>
             {mounted && <ChainWalletMenu />}
@@ -69,7 +69,7 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
         </nav>
         {MISSING_CONFIG.length > 0 && (
           <div className="border-t border-destructive/40 bg-crimson/30 px-4 py-1.5 text-center text-xs text-ivory">
-            Misconfigured deployment: {MISSING_CONFIG.join(', ')} {MISSING_CONFIG.length > 1 ? 'are' : 'is'} not set, so the app cannot read the contracts. Add {MISSING_CONFIG.length > 1 ? 'them' : 'it'} in the hosting environment variables and redeploy.
+            Misconfigured deployment: {MISSING_CONFIG.join(', ')} {MISSING_CONFIG.length > 1 ? 'are' : 'is'} not set, so the app cannot read the contracts. Run <code>npm run deploy:local</code> in contracts/ (it writes frontend/.env.local), then restart <code>npm run dev</code>.
           </div>
         )}
         {cfg.data?.paused && (
@@ -91,17 +91,17 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
                 <div className="gold-text font-deco text-xl font-bold">{BRAND}</div>
               </div>
               <p className="mt-3 max-w-sm text-sm text-fg-subtle">
-                Open sealed packs drawn by Chainlink VRF, complete royal sets, and trade cards peer to peer — every move settled on chain.
+                Open sealed packs drawn by on-chain commit-reveal, complete royal sets, and trade cards peer to peer — every move settled on chain.
               </p>
             </div>
             <FooterCol title="Explore" links={[['Home', '#/'], ['Gacha', '#/gacha'], ['Marketplace', '#/market'], ['Profile', '#/profile']]} />
             <FooterCol title="Contracts" links={[
               ['CardCollection', addrUrl(ADDR.collection)], ['PackSale', addrUrl(ADDR.packSale)], ['Marketplace', addrUrl(ADDR.market)],
             ]} external />
-            <FooterCol title="Sources" links={[['TCGdex', 'https://tcgdex.dev'], ['Chainlink VRF', 'https://vrf.chain.link'], ['Renaiss OS Index (soon)', 'https://index.renaissos.com']]} external />
+            <FooterCol title="Sources" links={[['TCGdex', 'https://tcgdex.dev'], ['Renaiss OS Index (soon)', 'https://index.renaissos.com']]} external />
           </div>
           <p className="mt-8 border-t border-gold/10 pt-5 text-[11px] leading-5 text-fg-muted">
-            Non-commercial academic project running only on the Sepolia testnet — no real money is involved. Cards are digital testnet replicas, not physical cards, and carry no financial value.
+            Non-commercial academic project running only on a private local Ethereum network — no real money is involved. Cards are digital replicas, not physical cards, and carry no financial value.
             Pokémon names and card images belong to Nintendo / Creatures Inc. / GAME FREAK inc. / The Pokémon Company; this project is not affiliated with or endorsed by them.
             Card data and images from TCGdex. Market reference prices from Renaiss OS Index are coming soon and will be shown for reference only, never used by the contracts.
           </p>

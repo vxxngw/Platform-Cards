@@ -17,7 +17,7 @@ export default function PacksTab() {
   const reqs = useQuery({ queryKey: ['requests', current], queryFn: () => http<OpenRequest[]>('tc/packs/requests'), enabled: !!current, refetchInterval: 15000 })
 
   const unopened = me.data?.unopened || []
-  const awaiting = (reqs.data || []).filter((r) => r.status === 'pending' || r.status === 'ready')
+  const awaiting = (reqs.data || []).filter((r) => r.status === 'pending' || r.status === 'ready' || r.status === 'expirable')
   const history = (reqs.data || []).filter((r) => r.status === 'fulfilled')
   const setOf = (id: number) => sets.data?.find((s) => s.id === id)
 
@@ -47,19 +47,26 @@ export default function PacksTab() {
 
       {awaiting.length > 0 && (
         <section className="space-y-5">
-          <SectionHeader kicker="Consulting the Oracle" title="Awaiting Chainlink VRF" sub="Openings whose randomness is on its way, or whose cards are ready to reveal." />
+          <SectionHeader kicker="Sealed Fates" title="Awaiting Reveal" sub="Committed openings: reveal them within 256 blocks, or return the packs once that window has closed." />
           <div className="grid gap-4 md:grid-cols-2">
-            {awaiting.map((r) => (
-              <Frame key={String(r.reqId)} corners={false} className="flex items-center gap-4 p-4">
-                <div className="flex shrink-0 gap-1">{[0, 1, 2].map((i) => <div key={i} className="w-8"><CardBack className={r.status === 'ready' ? 'animate-glow' : ''} /></div>)}</div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-display font-bold text-ivory">{r.setName ?? `Set #${r.setId}`} · {r.count} pack{r.count > 1 ? 's' : ''}</div>
-                  <div className="text-sm text-fg-muted">{r.status === 'ready' ? 'Cards ready to reveal' : 'Waiting for randomness'} · {timeAgo(r.createdAt)}</div>
-                  <div className="font-mono text-[10px] text-fg-muted">request {short(String(r.reqId), 8)}</div>
-                </div>
-                <Button size="sm" variant={r.status === 'ready' ? 'default' : 'outline'} onClick={() => opener.resume(r.reqId)}>{r.status === 'ready' ? 'Reveal cards' : 'Watch'}</Button>
-              </Frame>
-            ))}
+            {awaiting.map((r) => {
+              const left = Math.max(0, r.revealDeadline - r.head)
+              const line = r.status === 'pending' ? 'Waiting for the next block'
+                : r.status === 'expirable' ? 'Reveal window closed — packs can be returned'
+                : r.hasSecret ? `Ready to reveal · ${left} block${left === 1 ? '' : 's'} left` : `Secret not in this browser · returnable after block #${r.revealDeadline}`
+              const action = r.status === 'expirable' ? 'Return packs' : r.status === 'ready' && r.hasSecret ? 'Reveal cards' : 'View'
+              return (
+                <Frame key={String(r.reqId)} corners={false} className="flex items-center gap-4 p-4">
+                  <div className="flex shrink-0 gap-1">{[0, 1, 2].map((i) => <div key={i} className="w-8"><CardBack className={r.status === 'ready' && r.hasSecret ? 'animate-glow' : ''} /></div>)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-display font-bold text-ivory">{r.setName ?? `Set #${r.setId}`} · {r.count} pack{r.count > 1 ? 's' : ''}</div>
+                    <div className="text-sm text-fg-muted">{line} · {timeAgo(r.createdAt)}</div>
+                    <div className="font-mono text-[10px] text-fg-muted">opening #{String(r.reqId)} · commit block #{r.commitBlock}</div>
+                  </div>
+                  <Button size="sm" variant={action === 'View' ? 'outline' : 'default'} onClick={() => opener.resume(r.reqId)}>{action}</Button>
+                </Frame>
+              )
+            })}
           </div>
         </section>
       )}

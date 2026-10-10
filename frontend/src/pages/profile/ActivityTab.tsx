@@ -8,7 +8,7 @@ export default function ActivityTab() {
   const { current } = useWalletStore()
   const q = useQuery({ queryKey: ['activity', current], queryFn: () => http<ChainEvent[]>('tc/activity?limit=100'), enabled: !!current, refetchInterval: 30000 })
   if (q.isLoading) return <Skeleton className="h-72 rounded-xl" />
-  if (q.error) return <EmptyState title="Your chronicle could not be read" body="Activity could not be loaded from Sepolia right now. Try again shortly." />
+  if (q.error) return <EmptyState title="Your chronicle could not be read" body="Activity could not be loaded from the chain right now. Check that the local nodes are running, then try again." />
   if (!q.data?.length) return <EmptyState title="Nothing recorded yet" body="Purchases, openings, listings and sales from this wallet will be chronicled here." />
   return (
     <Frame corners={false} className="divide-y divide-gold/10 overflow-hidden">

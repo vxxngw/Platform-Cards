@@ -1,57 +1,39 @@
 import type { EIP1193Provider } from 'viem'
 
-// The wallet the app signs with. Privy owns the connection (login modal, embedded or external wallet, account and chain
-// changes); PrivyWalletBridge pushes the active wallet here so code outside React (viem clients, the contract adapter)
-// can use it. Nothing in the app talks to window.ethereum directly.
+// The browser wallet the app signs with (MetaMask, connected directly, no wallet SDK in between).
+// Wallet discovery uses EIP-6963: `window.ethereum` is a single slot that whichever extension loads last may take over, while
+// announced providers are named, so we can choose — MetaMask first, any other wallet next, window.ethereum last.
 
-export type ActiveWallet = {
-  address: `0x${string}`
-  provider: EIP1193Provider
-  chainId: number | null
-  /** 'privy' for the Privy embedded wallet, otherwise the external client ('metamask', 'coinbase_wallet', …). */
-  kind: string
-  switchChain: (chainId: number) => Promise<void>
+export type AnnouncedProvider = { info: { uuid?: string; name?: string; rdns?: string }; provider: EIP1193Provider }
+type LegacyProvider = EIP1193Provider & { isMetaMask?: boolean; providers?: LegacyProvider[] }
+type Legacy = LegacyProvider | null | undefined
+
+const isMetaMaskInfo = (i: AnnouncedProvider['info']) => i.rdns === 'io.metamask' || i.rdns === 'io.metamask.flask' || i.name === 'MetaMask'
+
+export function pickProvider(announced: AnnouncedProvider[], legacy: Legacy): EIP1193Provider | null {
+  const mm = announced.find((a) => isMetaMaskInfo(a.info))
+  if (mm) return mm.provider
+  // Wallets that predate EIP-6963 sit behind window.ethereum, sometimes as a list when several are installed.
+  const legacyList = legacy ? (Array.isArray(legacy.providers) ? legacy.providers : [legacy]) : []
+  const legacyMm = legacyList.find((p) => p.isMetaMask)
+  if (legacyMm) return legacyMm
+  if (announced[0]) return announced[0].provider
+  return legacyList[0] ?? null
 }
 
-export type PrivyActions = {
-  ready: boolean
-  authenticated: boolean
-  login: () => void
-  connectWallet: () => void
-  logout: () => Promise<void>
-}
+const announced = new Map<string, AnnouncedProvider>()
+let listening = false
 
-let active: ActiveWallet | null = null
-let actions: PrivyActions | null = null
-const listeners = new Set<() => void>()
-
-export const activeWallet = () => active
-export function setActiveWallet(w: ActiveWallet | null) {
-  active = w
-  listeners.forEach((l) => l())
-}
-export function subscribeWallet(l: () => void) {
-  listeners.add(l)
-  return () => { listeners.delete(l) }
-}
-
-export const privyActions = () => actions
-export function setPrivyActions(a: PrivyActions | null) {
-  actions = a
-}
-
-/** Privy reports chains in CAIP-2 form ('eip155:11155111'); plain numbers and hex are accepted too. */
-export function parseChainId(id: string | number | null | undefined): number | null {
-  if (id == null || id === '') return null
-  if (typeof id === 'number') return Number.isFinite(id) ? id : null
-  const raw = id.includes(':') ? id.split(':').pop()! : id
-  const n = raw.startsWith('0x') ? parseInt(raw, 16) : Number(raw)
-  return Number.isFinite(n) ? n : null
-}
-
-type WalletLike = { address: string; type?: string }
-
-/** The wallet to use among Privy's connected wallets (most recently connected first): the first Ethereum one. */
-export function pickWallet<W extends WalletLike>(wallets: readonly W[]): W | null {
-  return wallets.find((w) => (w.type ?? 'ethereum') === 'ethereum' && /^0x[0-9a-fA-F]{40}$/.test(w.address)) ?? null
+/** The wallet provider to use, or null. Synchronous: wallets answer `requestProvider` inside the dispatch call. */
+export function discoverProvider(): EIP1193Provider | null {
+  if (typeof window === 'undefined') return null
+  if (!listening) {
+    listening = true
+    window.addEventListener('eip6963:announceProvider', (e) => {
+      const d = (e as CustomEvent<AnnouncedProvider>).detail
+      if (d?.provider) announced.set(d.info?.uuid ?? d.info?.rdns ?? String(announced.size), d)
+    })
+  }
+  window.dispatchEvent(new Event('eip6963:requestProvider'))
+  return pickProvider([...announced.values()], (window as unknown as { ethereum?: Legacy }).ethereum)
 }

@@ -97,7 +97,7 @@ export default function GachaDetail({ id }: { id: number }) {
               <span className="font-display text-4xl font-black text-gold-bright">{p ? fmtEth(p.price) : '—'}</span>
               <span className="font-display tracking-widest text-fg-subtle">ETH</span>
             </div>
-            {p && ethUsd && <div className="text-sm text-fg-muted">≈ {fmtUsd(Number(p.price) * ethUsd)} (testnet ETH)</div>}
+            {p && ethUsd && <div className="text-sm text-fg-muted">≈ {fmtUsd(Number(p.price) * ethUsd)} (local ETH, no real value)</div>}
             <div className="mt-1 text-sm text-fg-muted">{p?.remaining.toLocaleString() ?? 0} packs left · up to {MAX_PACKS_PER_TX} per transaction</div>
 
             <div className="my-6 flex items-center gap-3">
@@ -112,7 +112,7 @@ export default function GachaDetail({ id }: { id: number }) {
               <span className="text-fg-muted">Total</span>
               <span className="font-display font-bold text-ivory">{fmtEth(total, 6)} ETH</span>
             </div>
-            {lacking && <div className="mt-3 rounded border border-destructive/40 bg-crimson/20 px-3 py-2 text-sm text-[#ffb3b8]">Not enough ETH (balance {fmtEth(balance)}). Use the Sepolia faucet from the wallet menu.</div>}
+            {lacking && <div className="mt-3 rounded border border-destructive/40 bg-crimson/20 px-3 py-2 text-sm text-[#ffb3b8]">Not enough ETH (balance {fmtEth(balance)}). Copy the faucet command from the wallet menu.</div>}
             {p && !p.onSale && <div className="mt-3 rounded border border-gold/20 bg-bg-subtle px-3 py-2 text-sm text-fg-muted">Packs of this set are not on sale right now.</div>}
             <Button size="lg" className="mt-5 w-full" disabled={gacha.busySet === s.id || !p?.onSale || lacking || (p?.remaining ?? 0) < qty} onClick={() => gacha.buy(s, qty)}>
               <Sparkles /> {gacha.busySet === s.id ? 'Summoning…' : current ? `Buy & open ${qty} pack${qty > 1 ? 's' : ''}` : 'Connect wallet to buy'}

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { ChevronDown, Copy, Droplets, ExternalLink, LogOut } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -8,24 +9,24 @@ import { fmtEth, fmtUsd, short, useWalletStore } from '@/lib/tc'
 import { useEthUsd, useMe, useRefresh } from '@/lib/hooks'
 import { CHAIN_ID, addrUrl } from '@/lib/chain/config'
 import { chain } from '@/lib/chain/client'
-import { connectWallet, disconnectWallet, ensureChain, useWalletChainId, useWalletKind } from '@/lib/chain/wallet'
+import { connectWallet, disconnectWallet, ensureChain, initChainWallet, useWalletChainId } from '@/lib/chain/wallet'
 
-const SEPOLIA_FAUCET = 'https://cloud.google.com/application/web3/faucet/ethereum/sepolia'
+// The local chain has no web faucet: contracts/scripts/fund.js sends ETH from a pre-funded dev account.
+const faucetCommand = (addr: string) => `npm run fund -- ${addr}`
 
 export function ChainWalletMenu() {
   const { current } = useWalletStore()
   const chainId = useWalletChainId()
-  const kind = useWalletKind()
   const me = useMe()
   const refresh = useRefresh()
   const ethUsd = useEthUsd()
+  useEffect(() => { initChainWallet() }, [])
 
   if (!current) {
-    return <Button size="sm" onClick={() => connectWallet().catch(() => {})}>Connect wallet</Button>
+    return <Button size="sm" onClick={() => connectWallet().then(refresh).catch(() => {})}>Connect wallet</Button>
   }
   const w = me.data?.wallet
   const wrong = chainId != null && chainId !== CHAIN_ID
-  const embedded = kind === 'privy'
   return (
     <div className="flex items-center gap-2">
       {wrong && (
@@ -49,19 +50,15 @@ export function ChainWalletMenu() {
               <span>{short(current, 10)}</span>
               <button className="text-fg-muted hover:text-fg-base" onClick={() => { navigator.clipboard?.writeText(current); toast('Address copied') }}><Copy className="size-3.5" /></button>
             </div>
-            <div className="text-xs font-normal text-fg-muted">
-              {embedded ? 'Privy wallet (email sign-in)' : `External wallet${kind ? ` · ${kind}` : ''}`}
-            </div>
+            <div className="text-xs font-normal text-fg-muted">MetaMask · {chain.name}</div>
             {w && <div className="text-xs font-normal text-fg-muted">{fmtEth(w.balance, 6)} ETH {ethUsd ? `≈ ${fmtUsd(Number(w.balance) * ethUsd)}` : ''}</div>}
           </DropdownMenuLabel>
           {addrUrl(current) && (
-            <DropdownMenuItem onClick={() => window.open(addrUrl(current), '_blank')}><ExternalLink /> View on Etherscan</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.open(addrUrl(current), '_blank')}><ExternalLink /> View in explorer</DropdownMenuItem>
           )}
-          {CHAIN_ID === 11155111 && (
-            <DropdownMenuItem onClick={() => { navigator.clipboard?.writeText(current); window.open(SEPOLIA_FAUCET, '_blank') }}>
-              <Droplets /> Get Sepolia ETH (address copied)
-            </DropdownMenuItem>
-          )}
+          <DropdownMenuItem onClick={() => { navigator.clipboard?.writeText(faucetCommand(current)); toast('Faucet command copied', { description: `Run it in contracts/ to send 100 local ETH: ${faucetCommand(current)}` }) }}>
+            <Droplets /> Get local ETH (copy faucet command)
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => disconnectWallet().then(refresh).catch(() => {})}><LogOut /> Sign out</DropdownMenuItem>
         </DropdownMenuContent>

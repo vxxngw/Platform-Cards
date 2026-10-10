@@ -12,8 +12,6 @@ import { MAX_PACKS_PER_TX, txUrl } from '@/lib/chain/config'
 import { useMe, useRefresh, useSets } from '@/lib/hooks'
 import { navigate } from '@/lib/router'
 
-const STUCK_AFTER_MS = 3600_000
-
 export function FlipCard({ card, flipped, onFlip, delay }: { card: Card; flipped: boolean; onFlip: () => void; delay: number }) {
   const legendary = card.rarity >= 3
   return (
@@ -36,7 +34,7 @@ type Props = {
   onOpenChange: (open: boolean) => void
   /** Open fresh packs of this set… */
   setId?: number
-  /** …or resume / replay an existing VRF request. */
+  /** …or resume / replay an existing opening request. */
   initialReqId?: string | null
   /** Pre-selected number of packs (e.g. how many were just bought). */
   suggestQty?: number
@@ -45,9 +43,9 @@ type Props = {
 }
 
 /**
- * The whole unboxing ritual in one dialog: choose how many packs → openPacks (VRF request) → wait for Chainlink VRF →
- * claimPacks (mint) → flip the cards. Closing it at any point is safe: unopened packs and pending requests wait in
- * Profile → Packs.
+ * The whole unboxing ritual in one dialog: choose how many packs → openPacks (commit to a secret) → wait one block →
+ * revealPacks (secret + that block's hash decide the cards, which are minted) → flip the cards. Closing it at any point is
+ * safe: the secret stays in this browser and pending openings wait in Profile → Packs.
  */
 export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, suggestQty, revealed }: Props) {
   const me = useMe()
@@ -62,7 +60,11 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
     queryKey: ['req', reqId],
     queryFn: () => http<OpenRequest>(`tc/packs/requests/${reqId}`),
     enabled: !!reqId && open,
-    refetchInterval: (q) => (q.state.data && q.state.data.status !== 'pending' ? false : 4000),
+    // pending lasts one block (~2 s); while revealable, keep the blocks-left count fresh until the window closes
+    refetchInterval: (q) => {
+      const s = q.state.data?.status
+      return !s || s === 'pending' ? 1500 : s === 'ready' || s === 'expirable' ? 6000 : false
+    },
   })
   const r = req.data
   const activeSetId = r?.setId ?? setId
@@ -72,7 +74,7 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
 
   useEffect(() => { if (qty > maxQty && available > 0) setQty(maxQty) }, [maxQty, available, qty])
   useEffect(() => {
-    if (r?.status === 'fulfilled' || r?.status === 'cancelled' || r?.status === 'ready') refresh()
+    if (r?.status === 'fulfilled' || r?.status === 'expired' || r?.status === 'ready') refresh()
   }, [r?.status]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function breakSeal() {
@@ -85,30 +87,30 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
       refresh()
     } catch { /* toast shown */ } finally { setBusy(false) }
   }
-  async function claim() {
+  async function reveal() {
     if (!r) return
     setBusy(true)
     try {
-      await sendTx(`Mint ${r.count * 5} cards`, 'tc/packs/claim', { reqId: String(r.reqId) })
+      await sendTx(`Reveal and mint ${r.count * 5} cards`, 'tc/packs/reveal', { reqId: String(r.reqId) })
       setFlipped(new Set())
       await req.refetch()
       refresh()
     } catch { /* toast shown */ } finally { setBusy(false) }
   }
-  async function reclaim() {
+  async function returnPacks() {
     if (!r) return
     setBusy(true)
-    try { await sendTx('Return packs', 'tc/packs/cancel', { reqId: String(r.reqId) }); await req.refetch() } catch { /* toast shown */ } finally { setBusy(false) }
+    try { await sendTx('Return packs', 'tc/packs/expire', { reqId: String(r.reqId) }); await req.refetch(); refresh() } catch { /* toast shown */ } finally { setBusy(false) }
   }
 
-  const stage: 'choose' | 'loading' | 'pending' | 'ready' | 'fulfilled' | 'cancelled' =
-    !reqId ? 'choose' : !r ? 'loading' : (r.status as 'pending' | 'ready' | 'fulfilled' | 'cancelled')
+  const stage: 'choose' | 'loading' | OpenRequest['status'] = !reqId ? 'choose' : !r ? 'loading' : r.status
   const rarest = stage === 'fulfilled' && r!.cards.length ? Math.max(...r!.cards.map((c) => c.rarity)) : -1
   const allFlipped = stage === 'fulfilled' && flipped.size >= r!.cards.length
+  const blocksLeft = r ? Math.max(0, r.revealDeadline - r.head) : 0
 
   const title = {
-    choose: 'Break the Seal', loading: 'Consulting the Oracle…', pending: 'Fate Is Being Drawn', ready: 'Your Fate Is Sealed',
-    fulfilled: allFlipped && rarest >= 3 ? 'A Legendary Pull!' : 'Behold Your Cards', cancelled: 'Request Withdrawn',
+    choose: 'Break the Seal', loading: 'Reading the Seal…', pending: 'Sealing Your Fate', ready: 'Your Fate Is Sealed',
+    expirable: 'The Seal Has Lapsed', fulfilled: allFlipped && rarest >= 3 ? 'A Legendary Pull!' : 'Behold Your Cards', expired: 'Packs Returned',
   }[stage]
 
   return (
@@ -118,12 +120,15 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
           <div className="kicker">{set?.name ?? r?.setName ?? 'Pack opening'}</div>
           <DialogTitle className={stage === 'fulfilled' && allFlipped && rarest >= 3 ? 'gold-shimmer text-3xl' : 'text-2xl'}>{title}</DialogTitle>
           <DialogDescription className="text-fg-subtle">
-            {stage === 'choose' && 'Each pack holds 5 cards; the fifth is always Rare or better. Randomness comes from Chainlink VRF.'}
-            {stage === 'pending' && 'Chainlink VRF is drawing your cards. This usually takes 1–3 blocks (about 15–45 seconds).'}
-            {stage === 'ready' && 'The random number has arrived and your cards are already decided. Reveal them to mint them into your wallet.'}
+            {stage === 'choose' && 'Each pack holds 5 cards; the fifth is always Rare or better. Your browser commits to a secret now; when you reveal it, the hash of the next block is mixed in, so nobody can know the cards in advance.'}
+            {stage === 'pending' && 'Your secret is committed. Waiting for the next block, whose hash goes into your draw (about 2 seconds)…'}
+            {stage === 'ready' && (r?.hasSecret
+              ? 'Your secret and the next block’s hash now decide your cards. Reveal them to mint them into your wallet.'
+              : `The secret of this opening is not stored in this browser. Reveal it in the browser you opened it from, or return the packs after block #${r?.revealDeadline}.`)}
+            {stage === 'expirable' && 'This opening was not revealed within 256 blocks, so it can no longer be revealed. Return the packs and open them again.'}
             {stage === 'fulfilled' && 'Click a card to turn it over, or reveal them all at once.'}
-            {stage === 'cancelled' && 'Chainlink VRF never answered this request, so the packs were returned to you unopened.'}
-            {stage === 'loading' && 'Reading your request from the chain…'}
+            {stage === 'expired' && 'This opening was not revealed in time, so its packs were returned to you unopened.'}
+            {stage === 'loading' && 'Reading your opening from the chain…'}
           </DialogDescription>
         </DialogHeader>
         <Divider />
@@ -150,7 +155,7 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
                   <Button size="lg" className="w-full md:w-auto" disabled={busy} onClick={breakSeal}>
                     <Sparkles /> {busy ? 'Breaking the seal…' : `Open ${qty} pack${qty > 1 ? 's' : ''}`}
                   </Button>
-                  <p className="text-xs text-fg-muted">Two transactions: one to request randomness, one to mint your cards once it arrives.</p>
+                  <p className="text-xs text-fg-muted">Two transactions: one commits to a secret, the next (a block later) reveals it and mints your cards.</p>
                 </>
               )}
             </div>
@@ -167,12 +172,9 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
             </div>
             {r && (
               <div className="mt-8 font-mono text-[11px] text-fg-muted">
-                VRF request {short(String(r.reqId), 8)}
-                {txUrl(r.txHash) && <> · <a href={txUrl(r.txHash)} target="_blank" rel="noreferrer" className="text-gold hover:underline">open tx ↗</a></>}
+                Opening #{String(r.reqId)} · committed in block #{r.commitBlock}
+                {txUrl(r.txHash) && <> · <a href={txUrl(r.txHash)} target="_blank" rel="noreferrer" className="text-gold hover:underline">commit tx ↗</a></>}
               </div>
-            )}
-            {r && Date.now() - new Date(r.createdAt).getTime() > STUCK_AFTER_MS && (
-              <Button variant="outline" size="sm" className="mt-4" disabled={busy} onClick={reclaim}>VRF did not answer — return my packs</Button>
             )}
           </div>
         )}
@@ -180,11 +182,20 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
         {stage === 'ready' && r && (
           <div className="py-4 text-center">
             <div className="mx-auto flex w-fit gap-2 sm:gap-3">
-              {[0, 1, 2, 3, 4].map((i) => <div key={i} className="w-12 sm:w-16"><CardBack className="animate-glow" /></div>)}
+              {[0, 1, 2, 3, 4].map((i) => <div key={i} className="w-12 sm:w-16"><CardBack className={r.hasSecret ? 'animate-glow' : ''} /></div>)}
             </div>
-            <Button size="lg" className="mt-6" disabled={busy} onClick={claim}>
-              <Sparkles /> {busy ? 'Minting your cards…' : `Reveal ${r.count * 5} cards`}
-            </Button>
+            {r.hasSecret && (
+              <Button size="lg" className="mt-6" disabled={busy} onClick={reveal}>
+                <Sparkles /> {busy ? 'Minting your cards…' : `Reveal ${r.count * 5} cards`}
+              </Button>
+            )}
+            <div className="mt-4 font-mono text-[11px] text-fg-muted">Opening #{String(r.reqId)} · {blocksLeft} block{blocksLeft === 1 ? '' : 's'} left to reveal</div>
+          </div>
+        )}
+
+        {stage === 'expirable' && r && (
+          <div className="py-4 text-center">
+            <Button size="lg" disabled={busy} onClick={returnPacks}>{busy ? 'Returning…' : `Return ${r.count} pack${r.count > 1 ? 's' : ''}`}</Button>
           </div>
         )}
 
@@ -209,8 +220,8 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
               </div>
             ))}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gold/15 pt-4">
-              <div className="font-mono text-[11px] text-fg-muted">
-                VRF request {short(String(r.reqId), 8)}
+              <div className="font-mono text-[11px] text-fg-muted" title={r.seed ? `seed = keccak256(secret, blockhash(#${r.commitBlock + 1}), ${String(r.reqId)}) = ${r.seed}` : undefined}>
+                Opening #{String(r.reqId)}{r.seed && <> · seed {short(r.seed, 10)}</>}
                 {r.fulfillTx && txUrl(r.fulfillTx) && <> · <a href={txUrl(r.fulfillTx)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-gold hover:underline">mint tx <ExternalLink className="size-3" /></a></>}
               </div>
               <div className="flex flex-wrap gap-2">
@@ -221,7 +232,7 @@ export function PackOpenDialog({ open, onOpenChange, setId, initialReqId, sugges
           </div>
         )}
 
-        {stage === 'cancelled' && (
+        {stage === 'expired' && (
           <div className="py-4 text-center">
             <Button variant="outline" onClick={() => setReqId(null)}>Back to my packs</Button>
           </div>
