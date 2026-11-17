@@ -6,7 +6,11 @@ export const CHAIN_ID = Number(env.VITE_CHAIN_ID || 105701)
 export const CHAIN_NAME = env.VITE_CHAIN_NAME || 'Localnet'
 export const RPC_URL = env.VITE_RPC_URL || 'http://127.0.0.1:8546'
 // eth_getLogs may need an endpoint with a wider block range than RPC_URL; the local node has no limit.
-export const LOGS_RPC_URL = env.VITE_LOGS_RPC_URL || RPC_URL
+// On Sepolia the default is publicnode: Alchemy's free tier (a common VITE_RPC_URL) answers getLogs for 10 blocks at most.
+export const SEPOLIA_LOGS_RPC_URL = 'https://ethereum-sepolia-rpc.publicnode.com'
+export const LOGS_RPC_URL = env.VITE_LOGS_RPC_URL || (CHAIN_ID === 11155111 ? SEPOLIA_LOGS_RPC_URL : RPC_URL)
+/** An RPC URL with its API key hidden (Alchemy /v2/<key>, Infura /v3/<key>, ?key=…), for messages and diagnostics. */
+export const maskRpc = (url: string) => url.replace(/(\/v\d+\/|key=)[^/?&]+/i, '$1…')
 export const DEPLOY_BLOCK = BigInt(env.VITE_DEPLOY_BLOCK || 0)
 /** Primary / legacy single-admin address (kept for backward-compat). */
 export const ADMIN_ADDRESS = (env.VITE_ADMIN_ADDRESS || '').toLowerCase()

@@ -1,6 +1,6 @@
 import { getAbiItem, type Hex } from 'viem'
 import { cardCollectionAbi, marketplaceAbi, packSaleAbi } from './abi'
-import { ADDR, DEPLOY_BLOCK } from './config'
+import { ADDR, DEPLOY_BLOCK, LOGS_RPC_URL, SEPOLIA_LOGS_RPC_URL, maskRpc } from './config'
 import { logsClient, publicClient } from './client'
 
 // Tiny in-browser indexer: reads the event logs of the 3 contracts from the deploy block and keeps them in memory.
@@ -21,6 +21,13 @@ let lastBlock: bigint | null = null
 let inflight: Promise<void> | null = null
 const REORG_OVERLAP = 12n
 
+/** A getLogs failure that is the endpoint's block-range cap gets a message saying how to fix it; anything else passes through. */
+export function rangeLimitError(e: unknown): unknown {
+  const msg = String((e as Error)?.message ?? e)
+  if (!/block range|eth_getLogs requests with up to|range (is )?too (large|wide)|query returned more than|limit exceeded/i.test(msg)) return e
+  return new Error(`The event-log endpoint (${maskRpc(LOGS_RPC_URL)}) caps eth_getLogs to a few blocks per request, so sets, listings and history cannot be read. Set VITE_LOGS_RPC_URL to an endpoint with a wide range (for Sepolia: ${SEPOLIA_LOGS_RPC_URL}) and redeploy.`)
+}
+
 async function getLogsChunked(src: (typeof SOURCES)[number], from: bigint, to: bigint): Promise<any[]> {
   const evs = src.names.map((n) => getAbiItem({ abi: src.abi as any, name: n }))
   const out: any[] = []
@@ -33,7 +40,7 @@ async function getLogsChunked(src: (typeof SOURCES)[number], from: bigint, to: b
       out.push(...logs)
       cur = end + 1n
     } catch (e) {
-      if (step <= 500n) throw e
+      if (step <= 500n) throw rangeLimitError(e)
       step = step / 4n // RPC range limit: retry smaller
     }
   }

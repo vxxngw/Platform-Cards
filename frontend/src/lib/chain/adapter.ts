@@ -3,7 +3,7 @@
 import { BaseError, ContractFunctionRevertedError, formatEther, getAddress, keccak256, parseEther, parseEventLogs, toBytes, type Hex } from 'viem'
 import type { Card, ChainEvent, CollectionSet, Config, Listing, Me, OpenRequest, OpenStatus } from '../tc'
 import { cardCollectionAbi, marketplaceAbi, packSaleAbi } from './abi'
-import { ADDR, ADMIN_ADDRESS, ADMIN_ADDRESSES, isAdminAddr, CHAIN_ID, LOGS_RPC_URL, MAX_PACKS_PER_TX, REWARD_MAX_SUPPLY, RPC_URL } from './config'
+import { ADDR, ADMIN_ADDRESS, ADMIN_ADDRESSES, isAdminAddr, CHAIN_ID, LOGS_RPC_URL, MAX_PACKS_PER_TX, maskRpc, REWARD_MAX_SUPPLY, RPC_URL } from './config'
 import { publicClient, readMany, walletClient } from './client'
 import { getCatalog, invalidateCatalog, knownRawMetadata } from './catalog'
 import { allEvents, blockTimes, byName, headBlock, iso, sync, type Ev } from './events'
@@ -161,7 +161,7 @@ async function getDiagnostics(addr: string | null): Promise<Diagnostics> {
     connected: addr, expectedChainId: CHAIN_ID,
     adminAddressEnv: ADMIN_ADDRESS || null,
     adminAddresses: ADMIN_ADDRESSES,
-    rpc: RPC_URL.replace(/(\/v\d+\/|\/v2\/|key=)[^/?&]+/i, '$1…'), logsRpc: LOGS_RPC_URL,
+    rpc: maskRpc(RPC_URL), logsRpc: maskRpc(LOGS_RPC_URL),
     collection: C, packSale: P, marketplace: M,
   }
   const step = async (k: string, fn: () => Promise<unknown>) => { try { out[k] = await fn() } catch (e) { out[k] = { error: explain(e) } } }
